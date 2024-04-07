@@ -56,7 +56,7 @@ class CarInterface(CarInterfaceBase):
 
     ret.dashcamOnly = False
     ret.steerLimitTimer = 0.8
-    ret.tireStiffnessFactor = 0.70   # not optimized yet
+    ret.tireStiffnessFactor = 1.01   # not optimized yet
 
     CarInterfaceBase.configure_torque_tune(candidate, ret.lateralTuning)
 
