@@ -84,6 +84,7 @@ class CarInterface(CarInterfaceBase):
       ret.mass = 3527 * CV.LB_TO_KG
       ret.wheelbase = 2.87
       ret.steerRatio = 16.5
+      ret.steerActuatorDelay = 0.42
     elif candidate in (CAR.CX_60, CAR.CX_80, CAR.CX_70, CAR.CX_90):
       ret.mass = 4217 * CV.LB_TO_KG
       ret.wheelbase = 3.1
