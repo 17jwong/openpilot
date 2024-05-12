@@ -246,15 +246,15 @@ FrogPilotControlsPanel::FrogPilotControlsPanel(SettingsWindow *parent) : FrogPil
       toggle = new FrogPilotParamValueControl(param, title, desc, icon, steerRatioStock * 0.75, steerRatioStock * 1.25, std::map<int, QString>(), this, false, "", 1, 0.01);
 
     } else if (param == "LatAccelFactor") {
-      toggle = new FrogPilotParamValueControlFloat(param, title, desc, icon, 0.8, 3.0, std::map<int, QString>(), this, false, "", 10.0, 0.1);
+      toggle = new FrogPilotParamValueControl(param, title, desc, icon, 0.8, 3.0, std::map<int, QString>(), this, false, "", 10.0, 0.1);
     } else if (param == "LatAngleFactor") {
-      toggle = new FrogPilotParamValueControlFloat(param, title, desc, icon, 0, 1.0, std::map<int, QString>(), this, false, "", 10.0, 0.1);
+      toggle = new FrogPilotParamValueControl(param, title, desc, icon, 0, 1.0, std::map<int, QString>(), this, false, "", 10.0, 0.1);
     } else if (param == "Friction") {
-          toggle = new FrogPilotParamValueControlFloat(param, title, desc, icon, 0, 0.5, std::map<int, QString>(), this, false, "", 10.0, 0.1);
+          toggle = new FrogPilotParamValueControl(param, title, desc, icon, 0, 0.5, std::map<int, QString>(), this, false, "", 10.0, 0.1);
     } else if (param == "Delay") {
-          toggle = new FrogPilotParamValueControlFloat(param, title, desc, icon, -0.2, 1, std::map<int, QString>(), this, false, "", 10.0, 0.1);
+          toggle = new FrogPilotParamValueControl(param, title, desc, icon, -0.2, 1, std::map<int, QString>(), this, false, "", 10.0, 0.1);
     } else if (param == "Offset") {
-          toggle = new FrogPilotParamValueControlFloat(param, title, desc, icon, -1.0, 1.0, std::map<int, QString>(), this, false, "", 10.0, 0.1);
+          toggle = new FrogPilotParamValueControl(param, title, desc, icon, -1.0, 1.0, std::map<int, QString>(), this, false, "", 10.0, 0.1);
 
     } else if (param == "LongitudinalTune") {
       FrogPilotParamManageControl *longitudinalTuneToggle = new FrogPilotParamManageControl(param, title, desc, icon, this);
@@ -588,27 +588,27 @@ void FrogPilotControlsPanel::updateCarToggles() {
     steerRatioToggle->updateControl(steerRatioStock * 0.75, steerRatioStock * 1.25, "", 0.01);
     steerRatioToggle->refresh();
 
-    FrogPilotParamValueControlFloat *LatAccelFactorToggle = static_cast<FrogPilotParamValueControlFloat*>(toggles["LatAccelFactor"]);
+    FrogPilotParamValueControl *LatAccelFactorToggle = static_cast<FrogPilotParamValueControl*>(toggles["LatAccelFactor"]);
     latAccelFactorStock = params.getFloat("LatAccelFactorStock");
     //LatAccelFactorToggle->setTitle(steerRatioStock != 0 ? QString("Lat Accel Factor (Default: %1)").arg(latAccelFactorStock, 0, 'f', 2) : QString("Lat Accel Factor"));
     //LatAccelFactorToggle->updateControl(latAccelFactorStock * 0.5, latAccelFactorStock * 2, "", 10.0, .1);
     LatAccelFactorToggle->refresh();
-    FrogPilotParamValueControlFloat *LatAngleFactorToggle = static_cast<FrogPilotParamValueControlFloat*>(toggles["LatAngleFactor"]);
+    FrogPilotParamValueControl *LatAngleFactorToggle = static_cast<FrogPilotParamValueControl*>(toggles["LatAngleFactor"]);
     latAngleFactorStock = params.getFloat("LatAngleFactorStock");
     //LatAngleFactorToggle->setTitle(latAngleFactorStock != 0 ? QString("Lat Angle Factor (Default: %1)").arg(latAngleFactorStock, 0, 'f', 2) : QString("Lat Angle Factor"));
     //LatAngleFactorToggle->updateControl(latAngleFactorStock * 0.5, latAngleFactorStock * 2, "", 10.0, .1);
     LatAngleFactorToggle->refresh();
-    FrogPilotParamValueControlFloat *FrictionToggle = static_cast<FrogPilotParamValueControlFloat*>(toggles["Friction"]);
+    FrogPilotParamValueControl *FrictionToggle = static_cast<FrogPilotParamValueControl*>(toggles["Friction"]);
     frictionStock = params.getFloat("FrictionStock");
     //FrictionToggle->setTitle(frictionStock != 0 ? QString("Friction (Default: %1)").arg(frictionStock, 0, 'f', 2) : QString("Steer Friction"));
     //FrictionToggle->updateControl(frictionStock * 0.5, frictionStock * 2, "", 10.0, .1);
     FrictionToggle->refresh();
-    FrogPilotParamValueControlFloat *DelayToggle = static_cast<FrogPilotParamValueControlFloat*>(toggles["Delay"]);
+    FrogPilotParamValueControl *DelayToggle = static_cast<FrogPilotParamValueControl*>(toggles["Delay"]);
     delayStock = params.getFloat("DelayStock");
     //DelayToggle->setTitle(delayStock != 0 ? QString("Delay (Default: %1)").arg(delayStock, 0, 'f', 2) : QString("Steer Delay"));
     //DelayToggle->updateControl(delayStock * 0.5, delayStock * 2, "", 10.0, .1);
     DelayToggle->refresh();
-    FrogPilotParamValueControlFloat *OffsetToggle = static_cast<FrogPilotParamValueControlFloat*>(toggles["Offset"]);
+    FrogPilotParamValueControl *OffsetToggle = static_cast<FrogPilotParamValueControl*>(toggles["Offset"]);
     offsetStock = params.getFloat("OffsetStock");
     //OffsetToggle->setTitle(offsetStock != 0 ? QString("Offset (Default: %1)").arg(offsetStock, 0, 'f', 2) : QString("Steer Offset"));
     //OffsetToggle->updateControl(offsetStock * 0.5, offsetStock * 2, "", 10.0, .1);
