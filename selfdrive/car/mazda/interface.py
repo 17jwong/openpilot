@@ -15,6 +15,26 @@ EventName = car.CarEvent.EventName
 class CarInterface(CarInterfaceBase):
 
   @staticmethod
+  def torque_from_lateral_accel_mazda(lateral_accel_value: float, torque_params: car.CarParams.LateralTorqueTuning,
+                                           lateral_accel_error: float, lateral_accel_deadzone: float,
+                                           steering_angle: float, vego: float, friction_compensation: bool) -> float:
+    steering_angle = abs(steering_angle)
+    if Params().get_bool("ManualTorqueTune"):
+      laf = Params().get_float("LatAngleFactor")
+    else:
+      laf = Params().get_float("LatAngleFactorStock")
+    lat_factor = torque_params.latAccelFactor * ((steering_angle * laf) + 1)
+    
+    friction = get_friction(lateral_accel_error, lateral_accel_deadzone, FRICTION_THRESHOLD, torque_params, friction_compensation)
+    return float(lateral_accel_value / lat_factor) + friction
+
+  def torque_from_lateral_accel(self) -> TorqueFromLateralAccelCallbackType:
+    if self.CP.carFingerprint in GEN2:
+      return self.torque_from_lateral_accel_mazda
+    else:
+      return self.torque_from_lateral_accel_linear
+
+  @staticmethod
   def _get_params(ret, params, candidate, fingerprint, car_fw, experimental_long, docs):
     ret.carName = "mazda"
     ret.radarUnavailable = True
@@ -84,7 +104,6 @@ class CarInterface(CarInterfaceBase):
       ret.mass = 3527 * CV.LB_TO_KG
       ret.wheelbase = 2.65176 #2.87
       ret.steerRatio = 16.5
-      ret.steerActuatorDelay = 0.3
     elif candidate in (CAR.CX_60, CAR.CX_80, CAR.CX_70, CAR.CX_90):
       ret.mass = 4217 * CV.LB_TO_KG
       ret.wheelbase = 3.1
