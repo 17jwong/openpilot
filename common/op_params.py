@@ -2,7 +2,7 @@
 import os
 import json
 from common.colors import COLORS
-from common.travis_checker import BASEDIR
+from common.basedir import BASEDIR
 from atomicwrites import atomic_write
 try:
   from common.realtime import sec_since_boot
