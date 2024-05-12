@@ -257,6 +257,7 @@ class CarInterfaceBase(ABC):
       if model is not None:
         params_memory.put_bool("NNFFModelFuzzyMatch", similarity_score < 0.99)
         params_memory.put("NNFFModelName", candidate)
+    Params().put_float("DelayStock",ret.steerActuatorDelay)
 
     # Vehicle mass is published curb weight plus assumed payload such as a human driver; notCars have no assumed payload
     if not ret.notCar:
@@ -350,6 +351,13 @@ class CarInterfaceBase(ABC):
     tune.torque.latAccelFactor = params['LAT_ACCEL_FACTOR']
     tune.torque.latAccelOffset = 0.0
     tune.torque.steeringAngleDeadzoneDeg = steering_angle_deadzone_deg
+    p = Params()
+    p.put_float("LatAccelFactorStock", tune.torque.latAccelFactor)
+    p.put_float("LatAngleFactorStock", .14)
+    p.put_float("FrictionStock", tune.torque.friction)
+    p.put_float("OffsetStock", tune.torque.latAccelOffset)
+
+  
   @abstractmethod
   def _update(self, c: car.CarControl) -> car.CarState:
     pass
