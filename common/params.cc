@@ -442,6 +442,20 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"EnableTI", PERSISTENT},
     {"EnableRI", PERSISTENT},
     {"Upload_Driving_Logs", CLEAR_ON_ONROAD_TRANSITION},
+
+
+    // Tuning
+    {"ManualTorqueTune", PERSISTENT},
+    {"LatAccelFactor", PERSISTENT},
+    {"LatAngleFactor", PERSISTENT},
+    {"Friction", PERSISTENT},
+    {"Delay", PERSISTENT},
+    {"Offset", PERSISTENT},
+    {"LatAccelFactorStock", PERSISTENT},
+    {"LatAngleFactorStock", PERSISTENT},
+    {"FrictionStock", PERSISTENT},
+    {"DelayStock", PERSISTENT},
+    {"OffsetStock", PERSISTENT},
 };
 
 } // namespace
