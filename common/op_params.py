@@ -101,6 +101,13 @@ class opParams:
       'camera_offset': Param(0.06, NUMBER, 'Your camera offset to use in lane_planner.py', live=True),  # this updates every sec
       'a_toggle_param': Param(False, bool, 'A toggle for a feature'),  # with no live or static specified, this updates every 10 sec
       'a_static_toggle': Param(False, bool, 'Another toggle for a feature, gotten on start up', static=True),  # this is only read once when opParams in initialized
+      'steerActuatorDelay': Param(0.1, float, 'Steer Actuator Delay', live=True),
+      'BP': Param([10., 41.0], list, 'Breakpoints', live=True),
+      'kpV': Param([0.18, 0.275], list, 'Proportional Values', live=True),
+      'kiV': Param([0.01, 0.021], list, 'Integral Values', live=True),
+      'kf': Param(0.0002, float, 'Feedfoward', live=True),
+      'kd': Param(0.0, float, 'Derivative', live=True)
+      
     }
 
     self._to_delete = ['alca_min_speed', 'alca_nudge_required']  # a list of unused params you want to delete from users' params file
