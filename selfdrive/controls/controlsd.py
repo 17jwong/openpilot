@@ -953,6 +953,17 @@ class Controls:
       t_since_plan = (self.sm.frame - self.sm.recv_frame['longitudinalPlan']) * DT_CTRL
       actuators.accel = self.LoC.update(CC.longActive, CS, long_plan, pid_accel_limits, t_since_plan)
 
+      if self.params.get_bool("ManualTorqueTune"):
+        self.CP.steerActuatorDelay = self.params.get_float("Delay")
+        self.LaC.update_live_torque_params(self.params.get_float("LatAccelFactor"),
+                                           self.params.get_float("Offset"),
+                                           self.params.get_float("Friction"))
+      else:
+        self.CP.steerActuatorDelay = self.params.get_float("DelayStock")
+        self.LaC.update_live_torque_params(self.params.get_float("LatAccelFactorStock"),
+                                           self.params.get_float("OffsetStock"),
+                                           self.params.get_float("FrictionStock"))
+
       # Steering PID loop and lateral MPC
       self.desired_curvature = clip_curvature(CS.vEgo, self.desired_curvature, model_v2.action.desiredCurvature)
       actuators.curvature = self.desired_curvature
