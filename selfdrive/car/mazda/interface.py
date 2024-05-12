@@ -8,9 +8,11 @@ from openpilot.selfdrive.controls.lib.drive_helpers import get_friction
 from openpilot.selfdrive.global_ti import TI
 from panda import Panda
 from openpilot.common.params import Params
+from common.op_params import opParams
 
 ButtonType = car.CarState.ButtonEvent.Type
 EventName = car.CarEvent.EventName
+
 
 class CarInterface(CarInterfaceBase):
 
@@ -18,6 +20,7 @@ class CarInterface(CarInterfaceBase):
   def _get_params(ret, params, candidate, fingerprint, car_fw, experimental_long, docs):
     ret.carName = "mazda"
     ret.radarUnavailable = True
+    op_params = opParams()
     if candidate in GEN1:
       ret.safetyConfigs = [get_safety_config(car.CarParams.SafetyModel.mazda)]
       ret.steerActuatorDelay = 0.1
@@ -83,12 +86,18 @@ class CarInterface(CarInterfaceBase):
     elif candidate in (CAR.CX_30, CAR.CX_50):
       ret.mass = 3527 * CV.LB_TO_KG
       ret.wheelbase = 2.65176 #2.87
-      ret.steerRatio = 16.5
+      ret.steerRatio = 15.9
+      ret.steerActuatorDelay = op_params.get('steerActuatorDelay')
+      ret.lateralTuning.pid.kpBP = op_params.get('BP')
+      ret.lateralTuning.pid.kpV = op_params.get('kpV')
+      ret.lateralTuning.pid.kiBP = op_params.get('BP')
+      ret.lateralTuning.pid.kiV = op_params.get('kiV')
+      ret.lateralTuning.pid.kf = op_params.get('kf')
+      ret.lateralTuning.pid.kd = op_params.get('kd')
     elif candidate in (CAR.CX_60, CAR.CX_80, CAR.CX_70, CAR.CX_90):
       ret.mass = 4217 * CV.LB_TO_KG
       ret.wheelbase = 3.1
       ret.steerRatio = 17.6
-      ret.steerActuatorDelay = 0.35
     if candidate not in (CAR.CX5_2022, CAR.MAZDA3_2019, CAR.CX_30, CAR.CX_50, CAR.CX_60, CAR.CX_70, CAR.CX_80, CAR.CX_90):
       ret.minSteerSpeed = LKAS_LIMITS.DISABLE_SPEED * CV.KPH_TO_MS
 
