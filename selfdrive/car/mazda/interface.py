@@ -85,6 +85,12 @@ class CarInterface(CarInterfaceBase):
       ret.wheelbase = 2.65176 #2.87
       ret.steerRatio = 16.5
       ret.steerActuatorDelay = 0.3
+      ret.longitudinalTuning.deadzoneBP = [0., 10., 35.]
+      ret.longitudinalTuning.deadzoneV = [0., 0.15, 0.3]
+      ret.longitudinalTuning.kpBP = [0., 5., 20., 35.]
+      ret.longitudinalTuning.kpV = [1.1, 0.75, 0.55, 0.2]
+      ret.longitudinalTuning.kiBP = [0., 5., 12., 20., 35.]
+      ret.longitudinalTuning.kiV = [.35, .25, .1, .06, .02]
     elif candidate in (CAR.CX_60, CAR.CX_80, CAR.CX_70, CAR.CX_90):
       ret.mass = 4217 * CV.LB_TO_KG
       ret.wheelbase = 3.1
