@@ -491,6 +491,11 @@ def getPublicKey() -> Optional[str]:
   with open(Paths.persist_root() + '/comma/id_rsa.pub') as f:
     return f.read()
 
+@dispatcher.add_method
+def resetDongle():
+  Params().remove("DongleId")
+  return {"success": 1}
+
 
 @dispatcher.add_method
 def getSshAuthorizedKeys() -> str:
