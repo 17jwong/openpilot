@@ -1,4 +1,4 @@
 #!/usr/bin/bash
-export ATHENA_HOST="ws://154.38.175.6:3111"
-export API_HOST="http://154.38.175.6:3111"
+export ATHENA_HOST="wss://connect-ws.duckdns.org"
+export API_HOST="https://connect-api.duckdns.org"
 exec ./launch_chffrplus.sh
