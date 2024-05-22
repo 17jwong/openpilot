@@ -31,8 +31,8 @@ class CarControllerParams:
       self.TI_STEER_ERROR_MAX = 350           # max delta between torque cmd and torque motor
     if CP.carFingerprint in GEN2:
       self.STEER_MAX = 8000                 
-      self.STEER_DELTA_UP = 45              # torque increase per refresh
-      self.STEER_DELTA_DOWN = 80            # torque decrease per refresh
+      self.STEER_DELTA_UP = 35              # torque increase per refresh
+      self.STEER_DELTA_DOWN = 60            # torque decrease per refresh
       self.STEER_DRIVER_ALLOWANCE = 1400     # allowed driver torque before start limiting
       self.STEER_DRIVER_MULTIPLIER = 5      # weight driver torque
       self.STEER_DRIVER_FACTOR = 1           # from dbc
