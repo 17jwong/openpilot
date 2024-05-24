@@ -85,6 +85,12 @@ class CarInterface(CarInterfaceBase):
       ret.wheelbase = 2.65176 #2.87
       ret.steerRatio = 16.5
       ret.steerActuatorDelay = 0.3
+      ret.lateralTuning.torque.kp = 1.05
+      ret.lateralTuning.torque.kf = 0.95
+      ret.lateralTuning.torque.ki = 0.09
+      ret.lateralTuning.torque.latAccelFactor = 1.115775
+      ret.lateralTuning.torque.friction = 0.17
+      
       ret.longitudinalTuning.deadzoneBP = [0., 10., 35.]
       ret.longitudinalTuning.deadzoneV = [0., 0.15, 0.3]
       ret.longitudinalTuning.kpBP = [0., 5., 20., 35.]
