@@ -89,7 +89,7 @@ class CarInterface(CarInterfaceBase):
       ret.lateralTuning.torque.kf = 0.7
       ret.lateralTuning.torque.ki = 0.075
       ret.lateralTuning.torque.latAccelFactor = 1.115775
-      ret.lateralTuning.torque.friction = 0.17
+      ret.lateralTuning.torque.friction = 0.25
       
       ret.longitudinalTuning.deadzoneBP = [0., 10., 35.]
       ret.longitudinalTuning.deadzoneV = [0., 0.15, 0.3]
