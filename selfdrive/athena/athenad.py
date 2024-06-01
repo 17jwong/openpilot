@@ -484,17 +484,18 @@ def startLocalProxy(global_end_event: threading.Event, remote_ws_uri: str, local
 
 
 @dispatcher.add_method
+def resetDongle():
+  Params().remove("DongleId")
+  return {"success": 1}
+
+
+@dispatcher.add_method
 def getPublicKey() -> Optional[str]:
   if not os.path.isfile(Paths.persist_root() + '/comma/id_rsa.pub'):
     return None
 
   with open(Paths.persist_root() + '/comma/id_rsa.pub') as f:
     return f.read()
-
-@dispatcher.add_method
-def resetDongle():
-  Params().remove("DongleId")
-  return {"success": 1}
 
 
 @dispatcher.add_method
