@@ -55,7 +55,7 @@ class CarInterface(CarInterfaceBase):
       ret.longitudinalTuning.kiBP = [0., 35.]
       ret.longitudinalTuning.kiV = [0.1, 0.1]
       ret.startingState = True
-      ret.steerActuatorDelay = 0.3
+      ret.steerActuatorDelay = 0.35
       p.put_float("LatAngleFactorStock", .14)
       
     ret.radarUnavailable = True
