@@ -55,7 +55,7 @@ class CarInterface(CarInterfaceBase):
       ret.longitudinalTuning.kiBP = [0., 35.]
       ret.longitudinalTuning.kiV = [0.1, 0.1]
       ret.startingState = True
-      ret.steerActuatorDelay = 0.31
+      ret.steerActuatorDelay = 0.3
       p.put_float("LatAngleFactorStock", .14)
       
     ret.radarUnavailable = True
@@ -91,9 +91,9 @@ class CarInterface(CarInterfaceBase):
       #ret.lateralTuning.torque.latAngleFactor = .14
     elif candidate in (CAR.CX_30, CAR.CX_50):
       ret.mass = 3527 * CV.LB_TO_KG
-      ret.wheelbase = 2.7 # Measured
-      ret.steerRatio = 16.5
-      ret.steerActuatorDelay = 0.25
+      ret.wheelbase = 2.814 # Measured
+      ret.steerRatio = 15.5
+      ret.steerActuatorDelay = 0.35
       #ret.lateralTuning.torque.latAngleFactor = .14
     elif candidate in (CAR.CX_60, CAR.CX_80, CAR.CX_70, CAR.CX_90):
       ret.mass = 4217 * CV.LB_TO_KG
