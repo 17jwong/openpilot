@@ -63,8 +63,8 @@ class CarInterface(CarInterfaceBase):
     ret.dashcamOnly = False
 
     
-    ret.steerLimitTimer = 0.8
-    ret.tireStiffnessFactor = 0.70   # not optimized yet
+    ret.steerLimitTimer = 1.0
+    ret.tireStiffnessFactor = 1.0   # not optimized yet
 
     CarInterfaceBase.configure_torque_tune(candidate, ret.lateralTuning)
 
@@ -90,9 +90,10 @@ class CarInterface(CarInterfaceBase):
       ret.steerRatio = 17.0
       #ret.lateralTuning.torque.latAngleFactor = .14
     elif candidate in (CAR.CX_30, CAR.CX_50):
-      ret.mass = 3375 * CV.LB_TO_KG
-      ret.wheelbase = 2.87 # Measured
-      ret.steerRatio = 15.5
+      ret.mass = 3527 * CV.LB_TO_KG
+      ret.wheelbase = 2.7 # Measured
+      ret.steerRatio = 16.5
+      ret.steerActuatorDelay = 0.25
       #ret.lateralTuning.torque.latAngleFactor = .14
     elif candidate in (CAR.CX_60, CAR.CX_80, CAR.CX_70, CAR.CX_90):
       ret.mass = 4217 * CV.LB_TO_KG
