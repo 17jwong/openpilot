@@ -84,10 +84,10 @@ class CarInterface(CarInterfaceBase):
       ret.mass = 3527 * CV.LB_TO_KG
       ret.wheelbase = 2.87 #2.65176
       ret.steerRatio = 16.5
-      ret.steerActuatorDelay = 0.37
-      ret.lateralTuning.torque.kp = 0.68
-      ret.lateralTuning.torque.kf = 0.63
-      ret.lateralTuning.torque.ki = 0.057
+      ret.steerActuatorDelay = 0.372
+      ret.lateralTuning.torque.kp = 0.7
+      ret.lateralTuning.torque.kf = 0.65
+      ret.lateralTuning.torque.ki = 0.056
       #ret.lateralTuning.torque.latAccelFactor = 1.115775
       #ret.lateralTuning.torque.friction = 0.25
       
