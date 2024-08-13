@@ -55,7 +55,7 @@ class CarInterface(CarInterfaceBase):
       ret.steerActuatorDelay = 0.1
 
     ret.dashcamOnly = False
-    ret.steerLimitTimer = 0.8
+    ret.steerLimitTimer = 1.0
     ret.tireStiffnessFactor = 0.70   # not optimized yet
 
     CarInterfaceBase.configure_torque_tune(candidate, ret.lateralTuning)
@@ -91,12 +91,19 @@ class CarInterface(CarInterfaceBase):
       #ret.lateralTuning.torque.latAccelFactor = 1.115775
       #ret.lateralTuning.torque.friction = 0.25
       
-      ret.longitudinalTuning.deadzoneBP = [0., 10., 35.]
-      ret.longitudinalTuning.deadzoneV = [0., 0.15, 0.3]
-      ret.longitudinalTuning.kpBP = [0., 5., 20., 35.]
-      ret.longitudinalTuning.kpV = [1.1, 0.75, 0.55, 0.2]
-      ret.longitudinalTuning.kiBP = [0., 5., 12., 20., 35.]
-      ret.longitudinalTuning.kiV = [.35, .25, .1, .06, .02]
+      #ret.longitudinalTuning.deadzoneBP = [0., 10., 35.]
+      #ret.longitudinalTuning.deadzoneV = [0., 0.15, 0.3]
+      #ret.longitudinalTuning.kpBP = [0., 5., 20., 35.]
+      #ret.longitudinalTuning.kpV = [1.1, 0.75, 0.55, 0.2]
+      #ret.longitudinalTuning.kiBP = [0., 5., 12., 20., 35.]
+      #ret.longitudinalTuning.kiV = [.35, .25, .1, .06, .02]
+      ret.longitudinalTuning.deadzoneBP = [0., 16., 20., 30.]
+      ret.longitudinalTuning.deadzoneV = [0., .03, .06, .15]
+      ret.longitudinalTuning.kpBP = [0., 5., 20.,]
+      ret.longitudinalTuning.kpV = [1.3, 1.0, 0.7]
+      ret.longitudinalTuning.kiBP = [0.,  12.,  20., 27., 40.,]
+      ret.longitudinalTuning.kiV = [.35, .215, .195, .10, .01]
+      
     elif candidate in (CAR.CX_60, CAR.CX_80, CAR.CX_70, CAR.CX_90):
       ret.mass = 4217 * CV.LB_TO_KG
       ret.wheelbase = 3.1
