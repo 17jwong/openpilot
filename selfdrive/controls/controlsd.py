@@ -6,7 +6,7 @@ import threading
 from typing import SupportsFloat
 
 from cereal import car, log, custom
-from openpilot.common.numpy_fast import clip
+from openpilot.common.numpy_fast import clip, interp
 from openpilot.common.realtime import config_realtime_process, Priority, Ratekeeper, DT_CTRL
 from openpilot.common.params import Params
 import cereal.messaging as messaging
@@ -631,7 +631,8 @@ class Controls:
     # Update VehicleModel
     lp = self.sm['liveParameters']
     x = max(lp.stiffnessFactor, 0.1)
-    sr = max(self.steer_ratio, 0.1)
+    interp_sr = interp(self.CS_prev.vEgo, [1., 18., 25.], [self.steer_ratio_low, self.steer_ratio, self.steer_ratio_high])
+    sr = max(interp_sr, 0.1) if self.use_custom_steer_ratio else max(lp.steerRatio, 0.1)
     self.VM.update_params(x, sr)
 
     # Update Torque Params
@@ -1035,7 +1036,14 @@ class Controls:
     self.green_light_alert = self.params.get_bool("GreenLightAlert")
 
     lateral_tune = self.params.get_bool("LateralTune")
-    self.steer_ratio = self.params.get_float("SteerRatio") if lateral_tune else self.params.get_float("SteerRatioStock")
+    stock_steer_ratio = self.params.get_float("SteerRatioStock")
+    self.steer_ratio = self.params.get_float("SteerRatio") if lateral_tune else stock_steer_ratio
+    self.steer_ratio_high = self.params.get_float("SteerRatioHigh") if lateral_tune else stock_steer_ratio
+    self.steer_ratio_low = self.params.get_float("SteerRatioLow") if lateral_tune else stock_steer_ratio
+
+    self.use_custom_steer_ratio = self.steer_ratio != stock_steer_ratio
+    self.use_custom_steer_ratio |= self.steer_ratio_high != stock_steer_ratio
+    self.use_custom_steer_ratio |= self.steer_ratio_low != stock_steer_ratio
 
     longitudinal_tune = self.params.get_bool("LongitudinalTune")
     self.sport_plus = self.params.get_int("AccelerationProfile") == 3 and longitudinal_tune
