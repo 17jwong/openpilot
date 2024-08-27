@@ -203,7 +203,11 @@ FrogPilotControlsPanel::FrogPilotControlsPanel(SettingsWindow *parent) : FrogPil
       });
       toggle = lateralTuneToggle;
     } else if (param == "SteerRatio") {
-      toggle = new FrogPilotParamValueControlFloat(param, title, desc, icon, steerRatioStock * 0.75, steerRatioStock * 1.25, std::map<int, QString>(), this, false, "", 10.0);
+      toggle = new FrogPilotParamValueControlFloat(param, title, desc, icon, steerRatioStock * 0.5, steerRatioStock * 2, std::map<int, QString>(), this, false, "", 10.0);
+    } else if (param == "SteerRatioHigh") {
+      toggle = new FrogPilotParamValueControlFloat(param, title, desc, icon, steerRatioStock * 0.5, steerRatioStock * 2, std::map<int, QString>(), this, false, "", 10.0);
+    } else if (param == "SteerRatioLow") {
+      toggle = new FrogPilotParamValueControlFloat(param, title, desc, icon, steerRatioStock * 0.5, steerRatioStock * 2, std::map<int, QString>(), this, false, "", 10.0);
     } else if (param == "LatAccelFactor") {
       toggle = new FrogPilotParamValueControlFloat(param, title, desc, icon, 0.8, 3.0, std::map<int, QString>(), this, false, "", 10.0, 0.1);
     } else if (param == "LatAngleFactor") {
