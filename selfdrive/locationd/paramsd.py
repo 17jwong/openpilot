@@ -138,12 +138,13 @@ def main():
   steer_ratio = params_reader.get_float("SteerRatio")
   steer_ratio_stock = params_reader.get_float("SteerRatioStock")
 
-  if steer_ratio_stock != CP.steerRatio or steer_ratio >= steer_ratio_stock * 2:
+  if steer_ratio_stock != CP.steerRatio:
     params_reader.put_float("SteerRatio", CP.steerRatio)
+    params_reader.put_float("SteerRatioHigh", CP.steerRatio)
+    params_reader.put_float("SteerRatioLow", CP.steerRatio)
     params_reader.put_float("SteerRatioStock", CP.steerRatio)
-    params_reader.put_bool("DoReboot", True)
 
-  min_sr, max_sr = 0.5 * CP.steerRatio, 2.0 * CP.steerRatio
+  min_sr, max_sr = 0.49 * CP.steerRatio, 2.01 * CP.steerRatio
 
   params = params_reader.get("LiveParameters")
 
