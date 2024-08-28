@@ -451,11 +451,11 @@ void FrogPilotControlsPanel::updateCarToggles() {
   steerRatioToggle->setTitle(steerRatioStock != 0 ? QString("Steer Ratio (Default: %1)").arg(steerRatioStock, 0, 'f', 2) : QString("Steer Ratio"));
   steerRatioToggle->updateControl(steerRatioStock * 0.5, steerRatioStock * 2, "", 10.0);
   steerRatioToggle->refresh();
-  FrogPilotParamValueControl *steerRatioHighToggle = static_cast<FrogPilotParamValueControlFloat*>(toggles["SteerRatioHigh"]);
+  FrogPilotParamValueControlFloat *steerRatioHighToggle = static_cast<FrogPilotParamValueControlFloat*>(toggles["SteerRatioHigh"]);
   steerRatioHighToggle->setTitle(QString("Steer Ratio High (Default: %1)").arg(steerRatioStock, 0, 'f', 2));
   steerRatioHighToggle->updateControl(steerRatioStock * 0.5, steerRatioStock * 2, "", 0.01);
   steerRatioHighToggle->refresh();
-  FrogPilotParamValueControl *steerRatioLowToggle = static_cast<FrogPilotParamValueControlFloat*>(toggles["SteerRatioLow"]);
+  FrogPilotParamValueControlFloat *steerRatioLowToggle = static_cast<FrogPilotParamValueControlFloat*>(toggles["SteerRatioLow"]);
   steerRatioLowToggle->setTitle(QString("Steer Ratio Low (Default: %1)").arg(steerRatioStock, 0, 'f', 2));
   steerRatioLowToggle->updateControl(steerRatioStock * 0.5, steerRatioStock * 2, "", 0.01);
   steerRatioLowToggle->refresh();
