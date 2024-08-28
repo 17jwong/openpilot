@@ -448,16 +448,16 @@ FrogPilotControlsPanel::FrogPilotControlsPanel(SettingsWindow *parent) : FrogPil
 void FrogPilotControlsPanel::updateCarToggles() {
   FrogPilotParamValueControlFloat *steerRatioToggle = static_cast<FrogPilotParamValueControlFloat*>(toggles["SteerRatio"]);
   steerRatioStock = params.getFloat("SteerRatioStock");
-  steerRatioToggle->setTitle(steerRatioStock != 0 ? QString("Steer Ratio (Default: %1)").arg(steerRatioStock, 16, 'f', 2) : QString("Steer Ratio"));
+  steerRatioToggle->setTitle(steerRatioStock != 0 ? QString("Steer Ratio (Default: %1)").arg(steerRatioStock, 0, 'f', 2) : QString("Steer Ratio"));
   steerRatioToggle->updateControl(steerRatioStock * 0.5, steerRatioStock * 2, "", 10.0);
   steerRatioToggle->refresh();
   FrogPilotParamValueControlFloat *steerRatioHighToggle = static_cast<FrogPilotParamValueControlFloat*>(toggles["SteerRatioHigh"]);
-  steerRatioHighToggle->setTitle(QString("Steer Ratio High (Default: %1)").arg(steerRatioStock, 25, 'f', 2));
-  steerRatioHighToggle->updateControl(steerRatioStock * 0.5, steerRatioStock * 2, "", 0.01);
+  steerRatioHighToggle->setTitle(QString("Steer Ratio High (Default: %1)").arg(steerRatioStock, 0, 'f', 2));
+  steerRatioHighToggle->updateControl(steerRatioStock * 0.5, steerRatioStock * 2, "", 10.0);
   steerRatioHighToggle->refresh();
   FrogPilotParamValueControlFloat *steerRatioLowToggle = static_cast<FrogPilotParamValueControlFloat*>(toggles["SteerRatioLow"]);
-  steerRatioLowToggle->setTitle(QString("Steer Ratio Low (Default: %1)").arg(steerRatioStock, 14, 'f', 2));
-  steerRatioLowToggle->updateControl(steerRatioStock * 0.5, steerRatioStock * 2, "", 0.01);
+  steerRatioLowToggle->setTitle(QString("Steer Ratio Low (Default: %1)").arg(steerRatioStock, 0, 'f', 2));
+  steerRatioLowToggle->updateControl(steerRatioStock * 0.5, steerRatioStock * 2, "", 10.0);
   steerRatioLowToggle->refresh();
   FrogPilotParamValueControlFloat *LatAccelFactorToggle = static_cast<FrogPilotParamValueControlFloat*>(toggles["LatAccelFactor"]);
   latAccelFactorStock = params.getFloat("LatAccelFactorStock");
