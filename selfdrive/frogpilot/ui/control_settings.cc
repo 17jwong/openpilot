@@ -28,9 +28,9 @@ FrogPilotControlsPanel::FrogPilotControlsPanel(SettingsWindow *parent) : FrogPil
     {"LateralTune", "Lateral Tuning", "Modify openpilot's steering behavior.", "../frogpilot/assets/toggle_icons/icon_lateral_tune.png"},
     {"AverageCurvature", "Average Desired Curvature", "Use Pfeiferj's distance-based curvature adjustment for improved curve handling.", ""},
     {"NNFF", "NNFF - Neural Network Feedforward", "Use Twilsonco's Neural Network Feedforward for enhanced precision in lateral control.", ""},
-    {"SteerRatio", steerRatioStock != 0 ? QString("Steer Ratio (Default: %1)").arg(steerRatioStock, 0, 'f', 2) : "Steer Ratio", "Set a custom interpolated steer ratio for your vehicle controls when driving between 18 and 25m/s", ""},
-    {"SteerRatioHigh", steerRatioStock != 0 ? QString("Steer Ratio (Default: %1)").arg(steerRatioStock, 0, 'f', 2) : "Steer Ratio High Speed", "Set a custom interpolated steer ratio for your vehicle controls when driving above 25m/s.", ""},
-    {"SteerRatioLow", steerRatioStock != 0 ? QString("Steer Ratio (Default: %1)").arg(steerRatioStock, 0, 'f', 2) : "Steer Ratio Low Speed", "Set a custom interpolated steer ratio for your vehicle controls when driving below 18m/s.", ""},
+    {"SteerRatio", steerRatioStock != 0 ? QString("Steer Ratio (Default: %1)").arg(steerRatioStock, 16.0, 'f', 2) : "Steer Ratio", "Set a custom interpolated steer ratio for your vehicle controls when driving between 18 and 25m/s", ""},
+    {"SteerRatioHigh", steerRatioStock != 0 ? QString("Steer Ratio (Default: %1)").arg(steerRatioStock, 25.0, 'f', 2) : "Steer Ratio High Speed", "Set a custom interpolated steer ratio for your vehicle controls when driving above 25m/s.", ""},
+    {"SteerRatioLow", steerRatioStock != 0 ? QString("Steer Ratio (Default: %1)").arg(steerRatioStock, 15.0, 'f', 2) : "Steer Ratio Low Speed", "Set a custom interpolated steer ratio for your vehicle controls when driving below 18m/s.", ""},
     {"ManualTorqueTune", "Manually Tune Torque Controller", "Use the toggles below to adjust the steering controller", ""},
     {"LatAccelFactor", QString("Lateral Acceleration Factor (Default: %1)").arg(latAccelFactorStock, 0, 'f', 2), "Adjusts the lateral acceleration factor. Lower is more Aggressive.", ""},
     {"LatAngleFactor", QString("Lateral Angle Factor (Default: %1)").arg(latAngleFactorStock, 0, 'f', 2), "Adjusts the lateral angle factor. Lower is more Aggressive.\nThis increases the Lateral Acceleration Factor as the steering angle increases.", ""},
@@ -424,7 +424,7 @@ FrogPilotControlsPanel::FrogPilotControlsPanel(SettingsWindow *parent) : FrogPil
   conditionalExperimentalKeys = {"CECurves", "CECurvesLead", "CESlowerLead", "CENavigation", "CEStopLights", "CESignal"};
   fireTheBabysitterKeys = {"NoLogging", "MuteDM", "MuteDoor", "MuteOverheated", "MuteSeatbelt", "OfflineMode"};
   laneChangeKeys = {"LaneChangeTime", "LaneDetection", "OneLaneChange"};
-  lateralTuneKeys = {"AverageCurvature", "NNFF", "SteerRatio", "ManualTorqueTune", "LatAccelFactor", "LatAngleFactor", "Friction", "Delay", "Offset"};
+  lateralTuneKeys = {"AverageCurvature", "NNFF", "SteerRatio", "SteerRatioLow", "SteerRatioHigh", "ManualTorqueTune", "LatAccelFactor", "LatAngleFactor", "Friction", "Delay", "Offset"};
   longitudinalTuneKeys = {"AccelerationProfile", "AggressiveAcceleration", "SmoothBraking", "StoppingDistance"};
   mtscKeys = {"MTSCAggressiveness"};
   qolKeys = {"DisableOnroadUploads", "HigherBitrate", "PauseLateralOnSignal", "ReverseCruise", "SetSpeedOffset"};
