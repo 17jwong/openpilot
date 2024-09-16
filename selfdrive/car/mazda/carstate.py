@@ -244,7 +244,6 @@ class CarState(CarStateBase):
       ]
 
     if CP.flags & MazdaFlags.GEN1:
-      messages += CarState.get_ti_messages(CP)
       messages += [
         ("ENGINE_DATA", 100),
         ("CRZ_EVENTS", 50),
