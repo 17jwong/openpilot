@@ -218,7 +218,8 @@ class FrogPilotVariables:
     toggle.navigationless_model = navigation_models and toggle.model not in navigation_models.split(',')
     radarless_models = self.params.get("RadarlessModels", encoding='utf-8') or ''
     toggle.radarless_model = radarless_models and toggle.model in radarless_models.split(',')
-    toggle.clairvoyant_model = toggle.model == "clairvoyant-driver"
+    toggle.clairvoyant_driver = toggle.model == "clairvoyant-driver"
+    toggle.clairvoyant_driver_v2 = toggle.model == "clairvoyant-driver-v2"
     toggle.secretgoodopenpilot_model = toggle.model == "secret-good-openpilot"
 
     quality_of_life_controls = self.params.get_bool("QOLControls")
