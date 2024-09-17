@@ -1,220 +1,273 @@
 import os
-import capnp
-import numpy as np
-from cereal import log
-from openpilot.selfdrive.modeld.constants import ModelConstants, Plan, Meta
+import random
 
-SEND_RAW_PRED = os.getenv('SEND_RAW_PRED')
+from types import SimpleNamespace
 
-ConfidenceClass = log.ModelDataV2.ConfidenceClass
+from cereal import car
+from openpilot.common.conversions import Conversions as CV
+from openpilot.common.numpy_fast import interp
+from openpilot.common.params import Params, UnknownKeyName
+from openpilot.selfdrive.controls.lib.desire_helper import LANE_CHANGE_SPEED_MIN
+from openpilot.selfdrive.modeld.constants import ModelConstants
+from openpilot.system.hardware.power_monitoring import VBATT_PAUSE_CHARGING
 
+from openpilot.selfdrive.frogpilot.controls.lib.frogpilot_functions import MODELS_PATH
+from openpilot.selfdrive.frogpilot.controls.lib.model_manager import DEFAULT_MODEL, DEFAULT_MODEL_NAME, process_model_name
 
-class PublishState:
+CITY_SPEED_LIMIT = 25                                   # 55mph is typically the minimum speed for highways
+CRUISING_SPEED = 5                                      # Roughly the speed cars go when not touching the gas while in drive
+MODEL_LENGTH = ModelConstants.IDX_N                     # Minimum length of the model
+PLANNER_TIME = ModelConstants.T_IDXS[MODEL_LENGTH - 1]  # Length of time the model projects out for
+THRESHOLD = 0.6                                         # 60% chance of condition being true
+
+def get_max_allowed_accel(v_ego):
+  return interp(v_ego, [0., 5., 20.], [4.0, 4.0, 2.0])  # ISO 15622:2018
+
+class FrogPilotVariables:
   def __init__(self):
-    self.disengage_buffer = np.zeros(ModelConstants.CONFIDENCE_BUFFER_LEN*ModelConstants.DISENGAGE_WIDTH, dtype=np.float32)
-    self.prev_brake_5ms2_probs = np.zeros(ModelConstants.FCW_5MS2_PROBS_WIDTH, dtype=np.float32)
-    self.prev_brake_3ms2_probs = np.zeros(ModelConstants.FCW_3MS2_PROBS_WIDTH, dtype=np.float32)
+    self.frogpilot_toggles = SimpleNamespace()
 
-def fill_xyzt(builder, t, x, y, z, x_std=None, y_std=None, z_std=None):
-  builder.t = t
-  builder.x = x.tolist()
-  builder.y = y.tolist()
-  builder.z = z.tolist()
-  if x_std is not None:
-    builder.xStd = x_std.tolist()
-  if y_std is not None:
-    builder.yStd = y_std.tolist()
-  if z_std is not None:
-    builder.zStd = z_std.tolist()
+    self.params = Params()
+    self.params_memory = Params("/dev/shm/params")
 
-def fill_xyvat(builder, t, x, y, v, a, x_std=None, y_std=None, v_std=None, a_std=None):
-  builder.t = t
-  builder.x = x.tolist()
-  builder.y = y.tolist()
-  builder.v = v.tolist()
-  builder.a = a.tolist()
-  if x_std is not None:
-    builder.xStd = x_std.tolist()
-  if y_std is not None:
-    builder.yStd = y_std.tolist()
-  if v_std is not None:
-    builder.vStd = v_std.tolist()
-  if a_std is not None:
-    builder.aStd = a_std.tolist()
+    self.has_prime = self.params.get_int("PrimeType") > 0
 
-def fill_model_msg(msg: capnp._DynamicStructBuilder, net_output_data: dict[str, np.ndarray], publish_state: PublishState,
-                   vipc_frame_id: int, vipc_frame_id_extra: int, frame_id: int, frame_drop: float,
-                   timestamp_eof: int, timestamp_llk: int, model_execution_time: float, valid: bool, nav_enabled: bool,
-                   clairvoyant_model: bool, secret_good_openpilot: bool) -> None:
-  frame_age = frame_id - vipc_frame_id if frame_id > vipc_frame_id else 0
-  msg.valid = valid
+    self.update_frogpilot_params(False)
 
-  modelV2 = msg.modelV2
-  modelV2.frameId = vipc_frame_id
-  modelV2.frameIdExtra = vipc_frame_id_extra
-  modelV2.frameAge = frame_age
-  modelV2.frameDropPerc = frame_drop * 100
-  modelV2.timestampEof = timestamp_eof
-  modelV2.locationMonoTime = timestamp_llk
-  modelV2.modelExecutionTime = model_execution_time
-  modelV2.navEnabled = nav_enabled
+  @property
+  def toggles(self):
+    return self.frogpilot_toggles
 
-  # plan
-  position = modelV2.position
-  fill_xyzt(position, ModelConstants.T_IDXS, *net_output_data['plan'][0,:,Plan.POSITION].T, *net_output_data['plan_stds'][0,:,Plan.POSITION].T)
-  velocity = modelV2.velocity
-  fill_xyzt(velocity, ModelConstants.T_IDXS, *net_output_data['plan'][0,:,Plan.VELOCITY].T)
-  acceleration = modelV2.acceleration
-  fill_xyzt(acceleration, ModelConstants.T_IDXS, *net_output_data['plan'][0,:,Plan.ACCELERATION].T)
-  orientation = modelV2.orientation
-  fill_xyzt(orientation, ModelConstants.T_IDXS, *net_output_data['plan'][0,:,Plan.T_FROM_CURRENT_EULER].T)
-  orientation_rate = modelV2.orientationRate
-  fill_xyzt(orientation_rate, ModelConstants.T_IDXS, *net_output_data['plan'][0,:,Plan.ORIENTATION_RATE].T)
+  @property
+  def toggles_updated(self):
+    return self.params_memory.get_bool("FrogPilotTogglesUpdated")
 
-  # lateral planning
-  action = modelV2.action
-  action.desiredCurvature = float(net_output_data['desired_curvature'][0,0])
+  def update_frogpilot_params(self, started=True):
+    toggle = self.frogpilot_toggles
 
-  # times at X_IDXS according to model plan
-  PLAN_T_IDXS = [np.nan] * ModelConstants.IDX_N
-  PLAN_T_IDXS[0] = 0.0
-  plan_x = net_output_data['plan'][0,:,Plan.POSITION][:,0].tolist()
-  for xidx in range(1, ModelConstants.IDX_N):
-    tidx = 0
-    # increment tidx until we find an element that's further away than the current xidx
-    while tidx < ModelConstants.IDX_N - 1 and plan_x[tidx+1] < ModelConstants.X_IDXS[xidx]:
-      tidx += 1
-    if tidx == ModelConstants.IDX_N - 1:
-      # if the Plan doesn't extend far enough, set plan_t to the max value (10s), then break
-      PLAN_T_IDXS[xidx] = ModelConstants.T_IDXS[ModelConstants.IDX_N - 1]
-      break
-    # interpolate to find `t` for the current xidx
-    current_x_val = plan_x[tidx]
-    next_x_val = plan_x[tidx+1]
-    p = (ModelConstants.X_IDXS[xidx] - current_x_val) / (next_x_val - current_x_val) if abs(next_x_val - current_x_val) > 1e-9 else float('nan')
-    PLAN_T_IDXS[xidx] = p * ModelConstants.T_IDXS[tidx+1] + (1 - p) * ModelConstants.T_IDXS[tidx]
+    openpilot_installed = self.params.get_bool("HasAcceptedTerms")
 
-  # lane lines
-  modelV2.init('laneLines', 6)
-  for i in range(6):
-    lane_line = modelV2.laneLines[i]
-    if i < 4:
-      fill_xyzt(lane_line, PLAN_T_IDXS, np.array(ModelConstants.X_IDXS), net_output_data['lane_lines'][0,i,:,0], net_output_data['lane_lines'][0,i,:,1])
+    key = "CarParams" if started else "CarParamsPersistent"
+    msg_bytes = self.params.get(key, block=openpilot_installed and started)
+
+    if msg_bytes:
+      with car.CarParams.from_bytes(msg_bytes) as CP:
+        car_make = CP.carName
+        car_model = CP.carFingerprint
+        toggle.openpilot_longitudinal = CP.openpilotLongitudinalControl
+        pcm_cruise = CP.pcmCruise
     else:
-      far_lane, near_lane, road_edge = (0, 1, 0) if i == 4 else (3, 2, 1)
+      car_make = "mock"
+      car_model = "mock"
+      toggle.openpilot_longitudinal = False
+      pcm_cruise = False
 
-      near_lane_y = net_output_data['lane_lines'][0,near_lane,:,0]
-      road_edge_y = net_output_data['road_edges'][0,road_edge,:,0]
-      far_lane_y = net_output_data['lane_lines'][0,far_lane,:,0]
+    toggle.is_metric = self.params.get_bool("IsMetric")
+    distance_conversion = 1. if toggle.is_metric else CV.FOOT_TO_METER
+    speed_conversion = CV.KPH_TO_MS if toggle.is_metric else CV.MPH_TO_MS
 
-      road_edge_distance = abs(np.linalg.norm(road_edge_y - near_lane_y))
-      far_lane_distance = abs(np.linalg.norm(far_lane_y - near_lane_y))
+    toggle.alert_volume_control = self.params.get_bool("AlertVolumeControl")
+    toggle.disengage_volume = self.params.get_int("DisengageVolume") if toggle.alert_volume_control else 100
+    toggle.engage_volume = self.params.get_int("EngageVolume") if toggle.alert_volume_control else 100
+    toggle.prompt_volume = self.params.get_int("PromptVolume") if toggle.alert_volume_control else 100
+    toggle.promptDistracted_volume = self.params.get_int("PromptDistractedVolume") if toggle.alert_volume_control else 100
+    toggle.refuse_volume = self.params.get_int("RefuseVolume") if toggle.alert_volume_control else 100
+    toggle.warningSoft_volume = self.params.get_int("WarningSoftVolume") if toggle.alert_volume_control else 100
+    toggle.warningImmediate_volume = max(self.params.get_int("WarningImmediateVolume"), 25) if toggle.alert_volume_control else 100
 
-      if road_edge_distance < far_lane_distance:
-        closest_lane_y = road_edge_y
+    toggle.always_on_lateral = self.params.get_bool("AlwaysOnLateral") and self.params.get_bool("AlwaysOnLateralSet")
+    toggle.always_on_lateral_lkas = toggle.always_on_lateral and self.params.get_bool("AlwaysOnLateralLKAS")
+    toggle.always_on_lateral_main = toggle.always_on_lateral and self.params.get_bool("AlwaysOnLateralMain")
+    toggle.always_on_lateral_pause_speed = self.params.get_int("PauseAOLOnBrake") if toggle.always_on_lateral else 0
+
+    toggle.automatic_updates = self.params.get_bool("AutomaticUpdates")
+
+    bonus_content = self.params.get_bool("BonusContent")
+    toggle.goat_scream = bonus_content and self.params.get_bool("GoatScream")
+    holiday_themes = bonus_content and self.params.get_bool("HolidayThemes")
+    toggle.current_holiday_theme = self.params.get("CurrentHolidayTheme", encoding='utf-8') if holiday_themes else None
+    personalize_openpilot = bonus_content and self.params.get_bool("PersonalizeOpenpilot")
+    toggle.sound_pack = self.params.get("CustomSignals", encoding='utf-8') if personalize_openpilot else "stock"
+    toggle.wheel_image = self.params.get("WheelIcon", encoding='utf-8') if personalize_openpilot else "stock"
+    toggle.random_events = bonus_content and self.params.get_bool("RandomEvents")
+
+    toggle.cluster_offset = self.params.get_float("ClusterOffset") if car_make == "toyota" else 1
+
+    toggle.conditional_experimental_mode = toggle.openpilot_longitudinal and self.params.get_bool("ConditionalExperimental")
+    toggle.conditional_curves = toggle.conditional_experimental_mode and self.params.get_bool("CECurves")
+    toggle.conditional_curves_lead = toggle.conditional_curves and self.params.get_bool("CECurvesLead")
+    toggle.conditional_lead = toggle.conditional_experimental_mode and self.params.get_bool("CELead")
+    toggle.conditional_slower_lead = toggle.conditional_lead and self.params.get_bool("CESlowerLead")
+    toggle.conditional_stopped_lead = toggle.conditional_lead and self.params.get_bool("CEStoppedLead")
+    toggle.conditional_limit = self.params.get_int("CESpeed") * speed_conversion if toggle.conditional_experimental_mode else 0
+    toggle.conditional_limit_lead = self.params.get_int("CESpeedLead") * speed_conversion if toggle.conditional_experimental_mode else 0
+    toggle.conditional_model_stop_time = self.params.get_int("CEModelStopTime") if toggle.conditional_experimental_mode else 0
+    toggle.conditional_navigation = toggle.conditional_experimental_mode and self.params.get_bool("CENavigation")
+    toggle.conditional_navigation_intersections = toggle.conditional_navigation and self.params.get_bool("CENavigationIntersections")
+    toggle.conditional_navigation_lead = toggle.conditional_navigation and self.params.get_bool("CENavigationLead")
+    toggle.conditional_navigation_turns = toggle.conditional_navigation and self.params.get_bool("CENavigationTurns")
+    toggle.conditional_signal = toggle.conditional_experimental_mode and self.params.get_bool("CESignal")
+    if toggle.conditional_experimental_mode:
+      self.params.put_bool("ExperimentalMode", True)
+
+    custom_alerts = self.params.get_bool("CustomAlerts")
+    toggle.green_light_alert = custom_alerts and self.params.get_bool("GreenLightAlert")
+    toggle.lead_departing_alert = custom_alerts and self.params.get_bool("LeadDepartingAlert")
+    toggle.loud_blindspot_alert = custom_alerts and self.params.get_bool("LoudBlindspotAlert")
+
+    custom_ui = self.params.get_bool("CustomUI")
+    custom_paths = custom_ui and self.params.get_bool("CustomPaths")
+    toggle.adjacent_lanes = custom_paths and self.params.get_bool("AdjacentPath")
+    toggle.blind_spot_path = custom_paths and self.params.get_bool("BlindSpotPath")
+    toggle.show_stopping_point = custom_ui and self.params.get_bool("ShowStoppingPoint")
+
+    toggle.device_management = self.params.get_bool("DeviceManagement")
+    device_shutdown_setting = self.params.get_int("DeviceShutdown") if toggle.device_management else 33
+    toggle.device_shutdown_time = (device_shutdown_setting - 3) * 3600 if device_shutdown_setting >= 4 else device_shutdown_setting * (60 * 15)
+    toggle.increase_thermal_limits = toggle.device_management and self.params.get_bool("IncreaseThermalLimits")
+    toggle.low_voltage_shutdown = self.params.get_float("LowVoltageShutdown") if toggle.device_management and openpilot_installed else VBATT_PAUSE_CHARGING
+    toggle.offline_mode = toggle.device_management and self.params.get_bool("OfflineMode")
+
+    driving_personalities = toggle.openpilot_longitudinal and self.params.get_bool("DrivingPersonalities")
+    toggle.custom_personalities = driving_personalities and self.params.get_bool("CustomPersonalities")
+    aggressive_profile = toggle.custom_personalities and self.params.get_bool("AggressivePersonalityProfile")
+    toggle.aggressive_jerk_acceleration = self.params.get_int("AggressiveJerkAcceleration") / 100. if aggressive_profile else 0.5
+    toggle.aggressive_jerk_speed = self.params.get_int("AggressiveJerkSpeed") / 100. if aggressive_profile else 0.5
+    toggle.aggressive_jerk_danger = self.params.get_int("AggressiveJerkDanger") / 100. if aggressive_profile else 0.5
+    toggle.aggressive_follow = self.params.get_float("AggressiveFollow") if aggressive_profile else 1.25
+    standard_profile = toggle.custom_personalities and self.params.get_bool("StandardPersonalityProfile")
+    toggle.standard_jerk_acceleration = self.params.get_int("StandardJerkAcceleration") / 100. if standard_profile else 1.0
+    toggle.standard_jerk_danger = self.params.get_int("StandardJerkDanger") / 100. if standard_profile else 0.5
+    toggle.standard_jerk_speed = self.params.get_int("StandardJerkSpeed") / 100. if standard_profile else 1.0
+    toggle.standard_follow = self.params.get_float("StandardFollow") if standard_profile else 1.45
+    relaxed_profile = toggle.custom_personalities and self.params.get_bool("RelaxedPersonalityProfile")
+    toggle.relaxed_jerk_acceleration = self.params.get_int("RelaxedJerkAcceleration") / 100. if relaxed_profile else 1.0
+    toggle.relaxed_jerk_danger = self.params.get_int("RelaxedJerkDanger") / 100. if relaxed_profile else 0.5
+    toggle.relaxed_jerk_speed = self.params.get_int("RelaxedJerkSpeed") / 100. if relaxed_profile else 1.0
+    toggle.relaxed_follow = self.params.get_float("RelaxedFollow") if relaxed_profile else 1.75
+    traffic_profile = toggle.custom_personalities and self.params.get_bool("TrafficPersonalityProfile")
+    toggle.traffic_mode_jerk_acceleration = [self.params.get_int("TrafficJerkAcceleration") / 100., toggle.aggressive_jerk_acceleration] if traffic_profile else [0.5, 0.5]
+    toggle.traffic_mode_jerk_danger = [self.params.get_int("TrafficJerkDanger") / 100., toggle.aggressive_jerk_danger] if traffic_profile else [1.0, 1.0]
+    toggle.traffic_mode_jerk_speed = [self.params.get_int("TrafficJerkSpeed") / 100., toggle.aggressive_jerk_speed] if traffic_profile else [0.5, 0.5]
+    toggle.traffic_mode_t_follow = [self.params.get_float("TrafficFollow"), toggle.aggressive_follow] if traffic_profile else [0.5, 1.0]
+    onroad_distance_button = toggle.custom_personalities and self.params.get_bool("OnroadDistanceButton")
+    toggle.distance_icons = self.params.get("CustomDistanceIcons", encoding='utf-8') if onroad_distance_button else "stock"
+
+    toggle.experimental_mode_via_press = toggle.openpilot_longitudinal and self.params.get_bool("ExperimentalModeActivation")
+    toggle.experimental_mode_via_distance = toggle.experimental_mode_via_press and self.params.get_bool("ExperimentalModeViaDistance")
+    toggle.experimental_mode_via_lkas = not toggle.always_on_lateral_lkas and toggle.experimental_mode_via_press and self.params.get_bool("ExperimentalModeViaLKAS")
+
+    lane_change_customizations = self.params.get_bool("LaneChangeCustomizations")
+    toggle.lane_change_delay = self.params.get_int("LaneChangeTime") if lane_change_customizations else 0
+    toggle.lane_detection_width = self.params.get_int("LaneDetectionWidth") * distance_conversion / 10. if lane_change_customizations else 0
+    toggle.lane_detection = toggle.lane_detection_width != 0
+    toggle.minimum_lane_change_speed = self.params.get_int("MinimumLaneChangeSpeed") * speed_conversion if lane_change_customizations and openpilot_installed else LANE_CHANGE_SPEED_MIN
+    toggle.nudgeless = lane_change_customizations and self.params.get_bool("NudgelessLaneChange")
+    toggle.one_lane_change = lane_change_customizations and self.params.get_bool("OneLaneChange")
+
+    lateral_tune = self.params.get_bool("LateralTune")
+    toggle.force_auto_tune = lateral_tune and self.params.get_bool("ForceAutoTune")
+    stock_steer_ratio = self.params.get_float("SteerRatioStock")
+    toggle.steer_ratio = self.params.get_float("SteerRatio") if lateral_tune else stock_steer_ratio
+    toggle.use_custom_steer_ratio = toggle.steer_ratio != stock_steer_ratio
+    toggle.taco_tune = lateral_tune and self.params.get_bool("TacoTune")
+    toggle.turn_desires = lateral_tune and self.params.get_bool("TurnDesires")
+
+    toggle.long_pitch = toggle.openpilot_longitudinal and car_make == "gm" and self.params.get_bool("LongPitch")
+    toggle.volt_sng = car_model == "CHEVROLET_VOLT" and self.params.get_bool("VoltSNG")
+
+    longitudinal_tune = toggle.openpilot_longitudinal and self.params.get_bool("LongitudinalTune")
+    toggle.acceleration_profile = self.params.get_int("AccelerationProfile") if longitudinal_tune else 0
+    toggle.deceleration_profile = self.params.get_int("DecelerationProfile") if longitudinal_tune else 0
+    toggle.human_acceleration = longitudinal_tune and self.params.get_bool("HumanAcceleration")
+    toggle.human_following = longitudinal_tune and self.params.get_bool("HumanFollowing")
+    toggle.increased_stopping_distance = self.params.get_int("StoppingDistance") * distance_conversion if longitudinal_tune else 0
+    toggle.lead_detection_threshold = self.params.get_int("LeadDetectionThreshold") / 100. if longitudinal_tune else 0.5
+    toggle.sport_plus = longitudinal_tune and toggle.acceleration_profile == 3
+    toggle.traffic_mode = longitudinal_tune and self.params.get_bool("TrafficMode")
+
+    toggle.map_turn_speed_controller = toggle.openpilot_longitudinal and self.params.get_bool("MTSCEnabled")
+    toggle.mtsc_curvature_check = toggle.map_turn_speed_controller and self.params.get_bool("MTSCCurvatureCheck")
+    self.params_memory.put_float("MapTargetLatA", 2 * (self.params.get_int("MTSCAggressiveness") / 100.))
+
+    toggle.model_manager = self.params.get_bool("ModelManagement", block=openpilot_installed)
+    available_models = self.params.get("AvailableModels", block=toggle.model_manager, encoding='utf-8') or ''
+    available_model_names = self.params.get("AvailableModelsNames", block=toggle.model_manager, encoding='utf-8') or ''
+    if toggle.model_manager and available_models:
+      toggle.model_randomizer = self.params.get_bool("ModelRandomizer")
+      if toggle.model_randomizer:
+        blacklisted_models = (self.params.get("BlacklistedModels", encoding='utf-8') or '').split(',')
+        existing_models = [model for model in available_models.split(',') if model not in blacklisted_models and os.path.exists(os.path.join(MODELS_PATH, f"{model}.thneed"))]
+        toggle.model = random.choice(existing_models) if existing_models else DEFAULT_MODEL
       else:
-        closest_lane_y = far_lane_y
-
-      diff_y = closest_lane_y - near_lane_y
-      new_lane_y = near_lane_y + diff_y / 2
-
-      fill_xyzt(lane_line, PLAN_T_IDXS, np.array(ModelConstants.X_IDXS), new_lane_y, net_output_data['lane_lines'][0,near_lane,:,1])
-
-  modelV2.laneLineStds = net_output_data['lane_lines_stds'][0,:,0,0].tolist()
-  modelV2.laneLineProbs = net_output_data['lane_lines_prob'][0,1::2].tolist()
-
-  # road edges
-  modelV2.init('roadEdges', 2)
-  for i in range(2):
-    road_edge = modelV2.roadEdges[i]
-    fill_xyzt(road_edge, PLAN_T_IDXS, np.array(ModelConstants.X_IDXS), net_output_data['road_edges'][0,i,:,0], net_output_data['road_edges'][0,i,:,1])
-  modelV2.roadEdgeStds = net_output_data['road_edges_stds'][0,:,0,0].tolist()
-
-  # leads
-  modelV2.init('leadsV3', 3)
-  for i in range(3):
-    lead = modelV2.leadsV3[i]
-    fill_xyvat(lead, ModelConstants.LEAD_T_IDXS, *net_output_data['lead'][0,i].T, *net_output_data['lead_stds'][0,i].T)
-    lead.prob = net_output_data['lead_prob'][0,i].tolist()
-    lead.probTime = ModelConstants.LEAD_T_OFFSETS[i]
-
-  # meta
-  meta = modelV2.meta
-  meta.desireState = net_output_data['desire_state'][0].reshape(-1).tolist()
-  meta.desirePrediction = net_output_data['desire_pred'][0].reshape(-1).tolist()
-  meta.engagedProb = net_output_data['meta'][0,Meta.ENGAGED].item()
-  meta.init('disengagePredictions')
-  disengage_predictions = meta.disengagePredictions
-  disengage_predictions.t = ModelConstants.META_T_IDXS
-  disengage_predictions.brakeDisengageProbs = net_output_data['meta'][0,Meta.BRAKE_DISENGAGE].tolist()
-  disengage_predictions.gasDisengageProbs = net_output_data['meta'][0,Meta.GAS_DISENGAGE].tolist()
-  disengage_predictions.steerOverrideProbs = net_output_data['meta'][0,Meta.STEER_OVERRIDE].tolist()
-  disengage_predictions.brake3MetersPerSecondSquaredProbs = net_output_data['meta'][0,Meta.HARD_BRAKE_3].tolist()
-  disengage_predictions.brake4MetersPerSecondSquaredProbs = net_output_data['meta'][0,Meta.HARD_BRAKE_4].tolist()
-  disengage_predictions.brake5MetersPerSecondSquaredProbs = net_output_data['meta'][0,Meta.HARD_BRAKE_5].tolist()
-
-  publish_state.prev_brake_5ms2_probs[:-1] = publish_state.prev_brake_5ms2_probs[1:]
-  publish_state.prev_brake_5ms2_probs[-1] = net_output_data['meta'][0,Meta.HARD_BRAKE_5][0]
-  publish_state.prev_brake_3ms2_probs[:-1] = publish_state.prev_brake_3ms2_probs[1:]
-  publish_state.prev_brake_3ms2_probs[-1] = net_output_data['meta'][0,Meta.HARD_BRAKE_3][0]
-  hard_brake_predicted = (publish_state.prev_brake_5ms2_probs > ModelConstants.FCW_THRESHOLDS_5MS2).all() and \
-    (publish_state.prev_brake_3ms2_probs > ModelConstants.FCW_THRESHOLDS_3MS2).all()
-  meta.hardBrakePredicted = hard_brake_predicted.item()
-
-  # temporal pose
-  if not clairvoyant_model:
-    temporal_pose = modelV2.temporalPose
-    if secret_good_openpilot:
-      temporal_pose.trans = np.zeros((3,), dtype=np.float32).reshape(-1).tolist()
-      temporal_pose.transStd = np.zeros((3,), dtype=np.float32).reshape(-1).tolist()
-      temporal_pose.rot = np.zeros((3,), dtype=np.float32).reshape(-1).tolist()
-      temporal_pose.rotStd = np.zeros((3,), dtype=np.float32).reshape(-1).tolist()
+        toggle.model = self.params.get("Model", block=True, encoding='utf-8')
     else:
-      temporal_pose.trans = net_output_data['sim_pose'][0,:3].tolist()
-      temporal_pose.transStd = net_output_data['sim_pose_stds'][0,:3].tolist()
-      temporal_pose.rot = net_output_data['sim_pose'][0,3:].tolist()
-      temporal_pose.rotStd = net_output_data['sim_pose_stds'][0,3:].tolist()
+      toggle.model = DEFAULT_MODEL
+    if toggle.model in available_models.split(',') and os.path.exists(os.path.join(MODELS_PATH, f"{toggle.model}.thneed")):
+      current_model_name = available_model_names.split(',')[available_models.split(',').index(toggle.model)]
+      toggle.part_model_param = process_model_name(current_model_name)
+      try:
+        self.params.check_key(toggle.part_model_param + "CalibrationParams")
+      except UnknownKeyName:
+        toggle.part_model_param = ""
+    else:
+      toggle.model = DEFAULT_MODEL
+      current_model_name = DEFAULT_MODEL_NAME
+      toggle.part_model_param = ""
+    navigation_models = self.params.get("NavigationModels", encoding='utf-8') or ''
+    toggle.navigationless_model = navigation_models and toggle.model not in navigation_models.split(',')
+    radarless_models = self.params.get("RadarlessModels", encoding='utf-8') or ''
+    toggle.radarless_model = radarless_models and toggle.model in radarless_models.split(',')
+    toggle.clairvoyant_driver = toggle.model == "clairvoyant-driver"
+    toggle.clairvoyant_driver_v2 = toggle.model == "clairvoyant-driver-v2"
+    toggle.secretgoodopenpilot_model = toggle.model == "secret-good-openpilot"
 
-  # confidence
-  if vipc_frame_id % (2*ModelConstants.MODEL_FREQ) == 0:
-    # any disengage prob
-    brake_disengage_probs = net_output_data['meta'][0,Meta.BRAKE_DISENGAGE]
-    gas_disengage_probs = net_output_data['meta'][0,Meta.GAS_DISENGAGE]
-    steer_override_probs = net_output_data['meta'][0,Meta.STEER_OVERRIDE]
-    any_disengage_probs = 1-((1-brake_disengage_probs)*(1-gas_disengage_probs)*(1-steer_override_probs))
-    # independent disengage prob for each 2s slice
-    ind_disengage_probs = np.r_[any_disengage_probs[0], np.diff(any_disengage_probs) / (1 - any_disengage_probs[:-1])]
-    # rolling buf for 2, 4, 6, 8, 10s
-    publish_state.disengage_buffer[:-ModelConstants.DISENGAGE_WIDTH] = publish_state.disengage_buffer[ModelConstants.DISENGAGE_WIDTH:]
-    publish_state.disengage_buffer[-ModelConstants.DISENGAGE_WIDTH:] = ind_disengage_probs
+    quality_of_life_controls = self.params.get_bool("QOLControls")
+    toggle.custom_cruise_increase = self.params.get_int("CustomCruise") if quality_of_life_controls and not pcm_cruise else 1
+    toggle.custom_cruise_increase_long = self.params.get_int("CustomCruiseLong") if quality_of_life_controls and not pcm_cruise else 5
+    toggle.force_standstill = quality_of_life_controls and self.params.get_bool("ForceStandstill")
+    toggle.force_stops = toggle.force_standstill and self.params.get_bool("ForceStops")
+    map_gears = quality_of_life_controls and self.params.get_bool("MapGears")
+    toggle.map_acceleration = map_gears and self.params.get_bool("MapAcceleration")
+    toggle.map_deceleration = map_gears and self.params.get_bool("MapDeceleration")
+    toggle.pause_lateral_below_speed = self.params.get_int("PauseLateralSpeed") * speed_conversion if quality_of_life_controls else 0
+    toggle.pause_lateral_below_signal = toggle.pause_lateral_below_speed != 0 and self.params.get_bool("PauseLateralOnSignal")
+    toggle.reverse_cruise_increase = quality_of_life_controls and pcm_cruise and self.params.get_bool("ReverseCruise")
+    toggle.set_speed_offset = self.params.get_int("SetSpeedOffset") * (1. if toggle.is_metric else CV.MPH_TO_KPH) if quality_of_life_controls and not pcm_cruise else 0
 
-  score = 0.
-  for i in range(ModelConstants.DISENGAGE_WIDTH):
-    score += publish_state.disengage_buffer[i*ModelConstants.DISENGAGE_WIDTH+ModelConstants.DISENGAGE_WIDTH-1-i].item() / ModelConstants.DISENGAGE_WIDTH
-  if score < ModelConstants.RYG_GREEN:
-    modelV2.confidence = ConfidenceClass.green
-  elif score < ModelConstants.RYG_YELLOW:
-    modelV2.confidence = ConfidenceClass.yellow
-  else:
-    modelV2.confidence = ConfidenceClass.red
+    toggle.sng_hack = toggle.openpilot_longitudinal and car_make == "toyota" and self.params.get_bool("SNGHack")
 
-  # raw prediction if enabled
-  if SEND_RAW_PRED:
-    modelV2.rawPredictions = net_output_data['raw_pred'].tobytes()
+    toggle.speed_limit_controller = toggle.openpilot_longitudinal and self.params.get_bool("SpeedLimitController")
+    toggle.force_mph_dashboard = toggle.speed_limit_controller and self.params.get_bool("ForceMPHDashboard")
+    toggle.map_speed_lookahead_higher = self.params.get_int("SLCLookaheadHigher") if toggle.speed_limit_controller else 0
+    toggle.map_speed_lookahead_lower = self.params.get_int("SLCLookaheadLower") if toggle.speed_limit_controller else 0
+    toggle.offset1 = self.params.get_int("Offset1") * speed_conversion if toggle.speed_limit_controller else 0
+    toggle.offset2 = self.params.get_int("Offset2") * speed_conversion if toggle.speed_limit_controller else 0
+    toggle.offset3 = self.params.get_int("Offset3") * speed_conversion if toggle.speed_limit_controller else 0
+    toggle.offset4 = self.params.get_int("Offset4") * speed_conversion if toggle.speed_limit_controller else 0
+    toggle.set_speed_limit = toggle.speed_limit_controller and self.params.get_bool("SetSpeedLimit")
+    toggle.speed_limit_alert = toggle.speed_limit_controller and self.params.get_bool("SpeedLimitChangedAlert")
+    toggle.speed_limit_confirmation = toggle.speed_limit_controller and self.params.get_bool("SLCConfirmation")
+    toggle.speed_limit_confirmation_higher = toggle.speed_limit_confirmation and self.params.get_bool("SLCConfirmationHigher")
+    toggle.speed_limit_confirmation_lower = toggle.speed_limit_confirmation and self.params.get_bool("SLCConfirmationLower")
+    speed_limit_controller_override = self.params.get_int("SLCOverride") if toggle.speed_limit_controller else 0
+    toggle.speed_limit_controller_override_manual = speed_limit_controller_override == 1
+    toggle.speed_limit_controller_override_set_speed = speed_limit_controller_override == 2
+    toggle.use_set_speed = toggle.speed_limit_controller and self.params.get_int("SLCFallback") == 0
+    toggle.use_experimental_mode = toggle.speed_limit_controller and self.params.get_int("SLCFallback") == 1
+    toggle.use_previous_limit = toggle.speed_limit_controller and self.params.get_int("SLCFallback") == 2
+    toggle.speed_limit_priority1 = self.params.get("SLCPriority1", encoding='utf-8') if toggle.speed_limit_controller else None
+    toggle.speed_limit_priority2 = self.params.get("SLCPriority2", encoding='utf-8') if toggle.speed_limit_controller else None
+    toggle.speed_limit_priority3 = self.params.get("SLCPriority3", encoding='utf-8') if toggle.speed_limit_controller else None
+    toggle.speed_limit_priority_highest = toggle.speed_limit_priority1 == "Highest"
+    toggle.speed_limit_priority_lowest = toggle.speed_limit_priority1 == "Lowest"
 
-def fill_pose_msg(msg: capnp._DynamicStructBuilder, net_output_data: dict[str, np.ndarray],
-                  vipc_frame_id: int, vipc_dropped_frames: int, timestamp_eof: int, live_calib_seen: bool) -> None:
-  msg.valid = live_calib_seen & (vipc_dropped_frames < 1)
-  cameraOdometry = msg.cameraOdometry
+    toyota_doors = car_make == "toyota" and self.params.get_bool("ToyotaDoors")
+    toggle.lock_doors = toyota_doors and self.params.get_bool("LockDoors")
+    toggle.unlock_doors = toyota_doors and self.params.get_bool("UnlockDoors")
 
-  cameraOdometry.frameId = vipc_frame_id
-  cameraOdometry.timestampEof = timestamp_eof
+    toggle.vision_turn_controller = toggle.openpilot_longitudinal and self.params.get_bool("VisionTurnControl")
+    toggle.curve_sensitivity = self.params.get_int("CurveSensitivity") / 100. if toggle.vision_turn_controller else 1
+    toggle.turn_aggressiveness = self.params.get_int("TurnAggressiveness") / 100. if toggle.vision_turn_controller else 1
 
-  cameraOdometry.trans = net_output_data['pose'][0,:3].tolist()
-  cameraOdometry.rot = net_output_data['pose'][0,3:].tolist()
-  cameraOdometry.wideFromDeviceEuler = net_output_data['wide_from_device_euler'][0,:].tolist()
-  cameraOdometry.roadTransformTrans = net_output_data['road_transform'][0,:3].tolist()
-  cameraOdometry.transStd = net_output_data['pose_stds'][0,:3].tolist()
-  cameraOdometry.rotStd = net_output_data['pose_stds'][0,3:].tolist()
-  cameraOdometry.wideFromDeviceEulerStd = net_output_data['wide_from_device_euler_stds'][0,:].tolist()
-  cameraOdometry.roadTransformTransStd = net_output_data['road_transform_stds'][0,:3].tolist()
+FrogPilotVariables = FrogPilotVariables()
