@@ -221,6 +221,7 @@ class FrogPilotVariables:
     toggle.clairvoyant_driver = toggle.model == "clairvoyant-driver"
     toggle.clairvoyant_driver_v2 = toggle.model == "clairvoyant-driver-v2"
     toggle.secretgoodopenpilot_model = toggle.model == "secret-good-openpilot"
+    toggle.tomb_raider = toggle.model == "tomb-raider"
 
     quality_of_life_controls = self.params.get_bool("QOLControls")
     toggle.custom_cruise_increase = self.params.get_int("CustomCruise") if quality_of_life_controls and not pcm_cruise else 1
