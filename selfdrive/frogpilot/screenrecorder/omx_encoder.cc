@@ -19,6 +19,7 @@
 #include "common/swaglog.h"
 #include "common/util.h"
 
+ExitHandler do_exit;
 
 using namespace libyuv;
 
@@ -178,8 +179,6 @@ int ABGRToNV12(const uint8_t* src_abgr,
   do {                                \
     assert(OMX_ErrorNone == (_expr)); \
   } while (0)
-
-extern ExitHandler do_exit;
 
 // ***** OMX callback functions *****
 
