@@ -92,6 +92,7 @@ class FrogPilotVCruise:
           self.speed_limit_timer = 0
 
         if speed_limit_confirmed:
+          self.slc.update_previous_limit(unconfirmed_slc_target)
           self.slc_target = unconfirmed_slc_target
           self.speed_limit_changed = False
       else:
