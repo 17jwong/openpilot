@@ -216,7 +216,8 @@ class RadarD:
     self.frogpilot_toggles = FrogPilotVariables.toggles
     FrogPilotVariables.update_frogpilot_params()
 
-    self.e2e_longitudinal_model = self.frogpilot_toggles.clairvoyant_model or self.frogpilot_toggles.secretgoodopenpilot_model
+    self.clairvoyant_model = self.frogpilot_toggles.clairvoyant_model
+    self.e2e_longitudinal_model = self.frogpilot_toggles.secretgoodopenpilot_model
     self.update_toggles = False
 
   def update(self, sm: messaging.SubMaster, rr):
@@ -262,7 +263,9 @@ class RadarD:
     self.radar_state.radarErrors = list(radar_errors)
     self.radar_state.carStateMonoTime = sm.logMonoTime['carState']
 
-    if len(sm['modelV2'].temporalPose.trans) and not self.e2e_longitudinal_model:
+    if self.clairvoyant_model and len(sm['modelV2'].velocity.x):
+      model_v_ego = sm['modelV2'].velocity.x[0]
+    elif not self.e2e_longitudinal_model and len(sm['modelV2'].temporalPose.trans):
       model_v_ego = sm['modelV2'].temporalPose.trans[0]
     else:
       model_v_ego = self.v_ego
