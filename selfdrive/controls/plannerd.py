@@ -39,7 +39,8 @@ def plannerd_thread():
 
   clairvoyant_driver = frogpilot_toggles.clairvoyant_driver
   clairvoyant_driver_v2 = frogpilot_toggles.clairvoyant_driver_v2
-  e2e_longitudinal_model = clairvoyant_driver or clairvoyant_driver_v2 or frogpilot_toggles.secretgoodopenpilot_model
+  tomb_raider = frogpilot_toggles.tomb_raider
+  e2e_longitudinal_model = clairvoyant_driver or clairvoyant_driver_v2 or frogpilot_toggles.secretgoodopenpilot_model or tomb_raider
   radarless_model = frogpilot_toggles.radarless_model
   
   update_toggles = False
@@ -47,7 +48,7 @@ def plannerd_thread():
   while True:
     sm.update()
     if sm.updated['modelV2']:
-      longitudinal_planner.update(clairvoyant_driver, clairvoyant_driver_v2, e2e_longitudinal_model, radarless_model, sm, frogpilot_toggles)
+      longitudinal_planner.update(clairvoyant_driver, clairvoyant_driver_v2, e2e_longitudinal_model, radarless_model, sm, tomb_raider, frogpilot_toggles)
       longitudinal_planner.publish(e2e_longitudinal_model, sm, pm)
       publish_ui_plan(sm, pm, longitudinal_planner)
 
