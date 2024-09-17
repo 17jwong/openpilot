@@ -190,6 +190,7 @@ class Controls:
     self.fcw_event_triggered = False
     self.no_entry_alert_triggered = False
     self.onroad_distance_pressed = False
+    self.radarless_model = self.frogpilot_toggles.radarless_model
     self.resume_pressed = False
     self.resume_previously_pressed = False
     self.steer_saturated_event_triggered = False
@@ -340,7 +341,7 @@ class Controls:
           self.events.add(EventName.cameraFrameRate)
     if not REPLAY and self.rk.lagging:
       self.events.add(EventName.controlsdLagging)
-    if not self.frogpilot_toggles.radarless_model:
+    if not self.radarless_model:
       if len(self.sm['radarState'].radarErrors) or ((not self.rk.lagging or REPLAY) and not self.sm.all_checks(['radarState'])):
         self.events.add(EventName.radarFault)
     if not self.sm.valid['pandaStates']:
