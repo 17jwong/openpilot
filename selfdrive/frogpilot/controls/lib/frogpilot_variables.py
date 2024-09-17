@@ -42,7 +42,7 @@ class FrogPilotVariables:
   def toggles_updated(self):
     return self.params_memory.get_bool("FrogPilotTogglesUpdated")
 
-  def update_frogpilot_params(self, started=True, frogpilot_process=False):
+  def update_frogpilot_params(self, started=True):
     toggle = self.frogpilot_toggles
 
     openpilot_installed = self.params.get_bool("HasAcceptedTerms")
@@ -193,9 +193,7 @@ class FrogPilotVariables:
     toggle.model_manager = self.params.get_bool("ModelManagement", block=openpilot_installed)
     available_models = self.params.get("AvailableModels", block=toggle.model_manager, encoding='utf-8') or ''
     available_model_names = self.params.get("AvailableModelsNames", block=toggle.model_manager, encoding='utf-8') or ''
-    current_model = self.params_memory.get("CurrentModel", encoding='utf-8')
-    current_model_name = self.params_memory.get("CurrentModelName", encoding='utf-8')
-    if toggle.model_manager and available_models and (current_model is None or not started):
+    if toggle.model_manager and available_models:
       toggle.model_randomizer = self.params.get_bool("ModelRandomizer")
       if toggle.model_randomizer:
         blacklisted_models = (self.params.get("BlacklistedModels", encoding='utf-8') or '').split(',')
@@ -204,7 +202,7 @@ class FrogPilotVariables:
       else:
         toggle.model = self.params.get("Model", block=True, encoding='utf-8')
     else:
-      toggle.model = current_model
+      toggle.model = DEFAULT_MODEL
     if toggle.model in available_models.split(',') and os.path.exists(os.path.join(MODELS_PATH, f"{toggle.model}.thneed")):
       current_model_name = available_model_names.split(',')[available_models.split(',').index(toggle.model)]
       toggle.part_model_param = process_model_name(current_model_name)
@@ -222,9 +220,6 @@ class FrogPilotVariables:
     toggle.radarless_model = radarless_models and toggle.model in radarless_models.split(',')
     toggle.clairvoyant_model = toggle.model == "clairvoyant-driver"
     toggle.secretgoodopenpilot_model = toggle.model == "secret-good-openpilot"
-    if frogpilot_process:
-      self.params_memory.put("CurrentModel", toggle.model)
-      self.params_memory.put("CurrentModelName", current_model_name)
 
     quality_of_life_controls = self.params.get_bool("QOLControls")
     toggle.custom_cruise_increase = self.params.get_int("CustomCruise") if quality_of_life_controls and not pcm_cruise else 1
