@@ -174,7 +174,7 @@ class LongitudinalPlanner:
 
     return x, v, a, j
 
-  def update(self, clairvoyant_driver, clairvoyant_driver_v2, e2e_longitudinal_model, sm, frogpilot_toggles):
+  def update(self, clairvoyant_driver, clairvoyant_driver_v2, e2e_longitudinal_model, radarless_model, sm, frogpilot_toggles):
     self.mpc.mode = 'blended' if sm['controlsState'].experimentalMode and not clairvoyant_driver else 'acc'
 
     v_ego = sm['carState'].vEgo
@@ -212,7 +212,7 @@ class LongitudinalPlanner:
     accel_limits_turns[0] = min(accel_limits_turns[0], self.a_desired + 0.05)
     accel_limits_turns[1] = max(accel_limits_turns[1], self.a_desired - 0.05)
 
-    if frogpilot_toggles.radarless_model:
+    if radarless_model:
       model_leads = list(sm['modelV2'].leadsV3)
       # TODO lead state should be invalidated if its different point than the previous one
       lead_states = [self.lead_one, self.lead_two]
@@ -230,7 +230,7 @@ class LongitudinalPlanner:
     self.mpc.set_accel_limits(accel_limits_turns[0], accel_limits_turns[1])
     self.mpc.set_cur_state(self.v_desired_filter.x, self.a_desired)
     x, v, a, j = self.parse_model(sm['modelV2'], self.v_model_error, v_ego, frogpilot_toggles.taco_tune)
-    self.mpc.update(self.lead_one, self.lead_two, sm['frogpilotPlan'].vCruise, x, v, a, j, sm['frogpilotPlan'].tFollow,
+    self.mpc.update(self.lead_one, self.lead_two, sm['frogpilotPlan'].vCruise, x, v, a, j, radarless_model, sm['frogpilotPlan'].tFollow,
                     sm['frogpilotCarState'].trafficModeActive, frogpilot_toggles, personality=sm['controlsState'].personality)
 
     self.a_desired_trajectory_full = np.interp(CONTROL_N_T_IDX, T_IDXS_MPC, self.mpc.a_solution)
