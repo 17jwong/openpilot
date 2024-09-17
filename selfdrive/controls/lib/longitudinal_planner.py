@@ -174,7 +174,7 @@ class LongitudinalPlanner:
 
     return x, v, a, j
 
-  def update(self, clairvoyant_driver, clairvoyant_driver_v2, e2e_longitudinal_model, radarless_model, sm, frogpilot_toggles):
+  def update(self, clairvoyant_driver, clairvoyant_driver_v2, e2e_longitudinal_model, radarless_model, sm, tomb_raider, frogpilot_toggles):
     self.mpc.mode = 'blended' if sm['controlsState'].experimentalMode and not clairvoyant_driver else 'acc'
 
     v_ego = sm['carState'].vEgo
@@ -204,7 +204,7 @@ class LongitudinalPlanner:
     # Prevent divergence, smooth in current v_ego
     self.v_desired_filter.x = max(0.0, self.v_desired_filter.update(v_ego))
     # Compute model v_ego error
-    self.v_model_error = 0.0 if e2e_longitudinal_model else get_speed_error_clairvoyant(sm['modelV2'], v_ego) if clairvoyant_driver_v2 else get_speed_error(sm['modelV2'], v_ego)
+    self.v_model_error = 0.0 if e2e_longitudinal_model else get_speed_error_clairvoyant(sm['modelV2'], v_ego) if (clairvoyant_driver_v2 or tomb_raider) else get_speed_error(sm['modelV2'], v_ego)
 
     if force_slow_decel:
       v_cruise = 0.0
