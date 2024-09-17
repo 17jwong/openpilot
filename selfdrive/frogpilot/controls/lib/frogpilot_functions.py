@@ -181,10 +181,11 @@ def convert_params(params, params_storage):
 
 def delete_file(file):
   try:
-    os.remove(file)
-    print(f"Deleted file: {file}")
-  except FileNotFoundError:
-    print(f"File not found: {file}")
+    if os.path.isfile(file):
+      os.remove(file)
+      print(f"Deleted file: {file}")
+    else:
+      print(f"File not found: {file}")
   except Exception as e:
     print(f"An error occurred: {e}")
 
