@@ -147,6 +147,8 @@ def frogpilot_thread():
   time_validated = False
   update_toggles = False
 
+  radarless_model = frogpilot_toggles.radarless_model
+
   pm = messaging.PubMaster(['frogpilotPlan'])
   sm = messaging.SubMaster(['carState', 'controlsState', 'deviceState', 'frogpilotCarControl',
                             'frogpilotCarState', 'frogpilotNavigation', 'modelV2', 'radarState'],
@@ -164,8 +166,11 @@ def frogpilot_thread():
       frogpilot_tracking = FrogPilotTracking()
 
     if started and sm.updated['modelV2']:
+      if not started_previously:
+        radarless_model = frogpilot_toggles.radarless_model
+      
       frogpilot_planner.update(sm['carState'], sm['controlsState'], sm['frogpilotCarControl'], sm['frogpilotCarState'],
-                               sm['frogpilotNavigation'], sm['modelV2'], sm['radarState'], frogpilot_toggles)
+                               sm['frogpilotNavigation'], sm['modelV2'], radarless_model, sm['radarState'], frogpilot_toggles)
       frogpilot_planner.publish(sm, pm, frogpilot_toggles)
 
       frogpilot_tracking.update(sm['carState'])
