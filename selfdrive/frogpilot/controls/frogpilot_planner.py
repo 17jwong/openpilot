@@ -44,8 +44,8 @@ class FrogPilotPlanner:
     self.tracking_lead_distance = 0
     self.v_cruise = 0
 
-  def update(self, carState, controlsState, frogpilotCarControl, frogpilotCarState, frogpilotNavigation, modelData, radarState, frogpilot_toggles):
-    if frogpilot_toggles.radarless_model:
+  def update(self, carState, controlsState, frogpilotCarControl, frogpilotCarState, frogpilotNavigation, modelData, radarless_model, radarState, frogpilot_toggles):
+    if radarless_model:
       model_leads = list(modelData.leadsV3)
       if len(model_leads) > 0:
         model_lead = model_leads[0]
