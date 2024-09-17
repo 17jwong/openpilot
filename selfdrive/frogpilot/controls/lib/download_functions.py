@@ -64,7 +64,7 @@ def get_remote_file_size(url):
       return None
     response.raise_for_status()
     return int(response.headers.get('Content-Length', 0))
-  except (requests.RequestException, ValueError) as e:
+  except Exception as e:
     handle_request_error(e, None, None, None, None)
     return None
 
@@ -96,7 +96,8 @@ def verify_download(file_path, url):
   remote_file_size = get_remote_file_size(url)
   if remote_file_size is None:
     print(f"Error fetching remote size for {file_path}")
-    return None
+    return False
+    
   if remote_file_size != os.path.getsize(file_path):
     print(f"File size mismatch for {file_path}")
     return False
