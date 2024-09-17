@@ -218,6 +218,7 @@ class RadarD:
 
     self.clairvoyant_driver_v2 = self.frogpilot_toggles.clairvoyant_driver_v2
     self.e2e_longitudinal_model = self.frogpilot_toggles.clairvoyant_driver or self.frogpilot_toggles.secretgoodopenpilot_model
+    self.tomb_raider = self.frogpilot_toggles.tomb_raider
     self.update_toggles = False
 
   def update(self, sm: messaging.SubMaster, rr):
@@ -263,7 +264,7 @@ class RadarD:
     self.radar_state.radarErrors = list(radar_errors)
     self.radar_state.carStateMonoTime = sm.logMonoTime['carState']
 
-    if self.clairvoyant_driver_v2 and len(sm['modelV2'].velocity.x):
+    if (self.clairvoyant_driver_v2 or self.tomb_raider) and len(sm['modelV2'].velocity.x):
       model_v_ego = sm['modelV2'].velocity.x[0]
     elif not self.e2e_longitudinal_model and len(sm['modelV2'].temporalPose.trans):
       model_v_ego = sm['modelV2'].temporalPose.trans[0]
