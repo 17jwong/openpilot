@@ -202,3 +202,10 @@ def get_speed_error(modelV2: log.ModelDataV2, v_ego: float) -> float:
     vel_err = clip(modelV2.temporalPose.trans[0] - v_ego, -MAX_VEL_ERR, MAX_VEL_ERR)
     return float(vel_err)
   return 0.0
+
+def get_speed_error_clairvoyant(modelV2: log.ModelDataV2, v_ego: float) -> float:
+  # ToDo: Try relative error, and absolute speed
+  if len(modelV2.velocity.x):
+    vel_err = clip(modelV2.velocity.x[0] - v_ego, -MAX_VEL_ERR, MAX_VEL_ERR)
+    return float(vel_err)
+  return 0.0
