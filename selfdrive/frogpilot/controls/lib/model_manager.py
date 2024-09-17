@@ -11,7 +11,7 @@ from openpilot.common.params import Params, UnknownKeyName
 from openpilot.selfdrive.frogpilot.controls.lib.download_functions import GITHUB_URL, GITLAB_URL, download_file, get_repository_url, handle_error, handle_request_error, verify_download
 from openpilot.selfdrive.frogpilot.controls.lib.frogpilot_functions import MODELS_PATH, delete_file
 
-VERSION = "v5"
+VERSION = "v6"
 
 DEFAULT_MODEL = "north-dakota-v2"
 DEFAULT_MODEL_NAME = "North Dakota V2 (Default)"
