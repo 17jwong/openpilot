@@ -45,7 +45,7 @@ def fill_xyvat(builder, t, x, y, v, a, x_std=None, y_std=None, v_std=None, a_std
 def fill_model_msg(msg: capnp._DynamicStructBuilder, net_output_data: dict[str, np.ndarray], publish_state: PublishState,
                    vipc_frame_id: int, vipc_frame_id_extra: int, frame_id: int, frame_drop: float,
                    timestamp_eof: int, timestamp_llk: int, model_execution_time: float, valid: bool, nav_enabled: bool,
-                   clairvoyant_driver: bool, secret_good_openpilot: bool) -> None:
+                   clairvoyant_driver: bool, secret_good_openpilot: bool, tomb_raider: bool) -> None:
   frame_age = frame_id - vipc_frame_id if frame_id > vipc_frame_id else 0
   msg.valid = valid
 
@@ -162,7 +162,7 @@ def fill_model_msg(msg: capnp._DynamicStructBuilder, net_output_data: dict[str, 
   meta.hardBrakePredicted = hard_brake_predicted.item()
 
   # temporal pose
-  if not clairvoyant_driver:
+  if not (clairvoyant_driver or tomb_raider):
     temporal_pose = modelV2.temporalPose
     if secret_good_openpilot:
       temporal_pose.trans = np.zeros((3,), dtype=np.float32).reshape(-1).tolist()
