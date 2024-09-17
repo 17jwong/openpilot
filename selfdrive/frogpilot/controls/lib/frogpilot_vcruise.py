@@ -1,149 +1,310 @@
-from openpilot.common.conversions import Conversions as CV
-from openpilot.common.numpy_fast import clip
-from openpilot.common.realtime import DT_MDL
+import json
+import os
+import re
+import shutil
+import time
+import urllib.request
 
-from openpilot.selfdrive.controls.controlsd import ButtonType
-from openpilot.selfdrive.controls.lib.drive_helpers import V_CRUISE_UNSET
+import openpilot.system.sentry as sentry
 
-from openpilot.selfdrive.frogpilot.controls.lib.frogpilot_variables import CRUISING_SPEED, PLANNER_TIME
-from openpilot.selfdrive.frogpilot.controls.lib.map_turn_speed_controller import MapTurnSpeedController
-from openpilot.selfdrive.frogpilot.controls.lib.speed_limit_controller import SpeedLimitController
+from openpilot.common.basedir import BASEDIR
+from openpilot.common.params import Params, UnknownKeyName
 
-TARGET_LAT_A = 1.9
+from openpilot.selfdrive.frogpilot.controls.lib.download_functions import GITHUB_URL, GITLAB_URL, download_file, get_remote_file_size, get_repository_url, handle_error, handle_request_error, verify_download
+from openpilot.selfdrive.frogpilot.controls.lib.frogpilot_functions import MODELS_PATH, delete_file
 
-class FrogPilotVCruise:
-  def __init__(self, FrogPilotPlanner):
-    self.frogpilot_planner = FrogPilotPlanner
+VERSION = "v6"
 
-    self.params_memory = self.frogpilot_planner.params_memory
+DEFAULT_MODEL = "north-dakota-v2"
+DEFAULT_MODEL_NAME = "North Dakota V2 (Default)"
 
-    self.mtsc = MapTurnSpeedController()
-    self.slc = SpeedLimitController()
+def list_existing_models(available_models, repo_url):
+  existing_models_info = []
+  missing_models_info = []
 
-    self.forcing_stop = False
-    self.override_force_stop = False
-    self.override_slc = False
-    self.speed_limit_changed = False
+  local_models = {model_file.replace(".thneed", "") for model_file in os.listdir(MODELS_PATH) if os.path.isfile(os.path.join(MODELS_PATH, model_file))}
 
-    self.model_length = 0
-    self.mtsc_target = 0
-    self.overridden_speed = 0
-    self.previous_speed_limit = 0
-    self.slc_target = 0
-    self.speed_limit_timer = 0
-    self.tracked_model_length = 0
-    self.vtsc_target = 0
+  for model_file in local_models:
+    local_path = os.path.join(MODELS_PATH, f"{model_file}.thneed")
+    local_size = os.path.getsize(local_path)
+    remote_url = f"{repo_url}Models/{model_file}.thneed"
 
-  def update(self, carState, controlsState, frogpilotCarControl, frogpilotCarState, frogpilotNavigation, modelData, v_cruise, v_ego, frogpilot_toggles):
-    self.override_force_stop |= carState.gasPressed
-    self.override_force_stop |= frogpilot_toggles.force_stops and carState.standstill and self.frogpilot_planner.tracking_lead
-    self.override_force_stop |= frogpilotCarControl.resumePressed
+    remote_size = get_remote_file_size(remote_url)
+    if remote_size is None:
+      remote_size = 'Unknown'
 
-    v_cruise_cluster = max(controlsState.vCruiseCluster, v_cruise) * CV.KPH_TO_MS
-    v_cruise_diff = v_cruise_cluster - v_cruise
+    existing_models_info.append({
+      'model': model_file,
+      'local_size': local_size,
+      'remote_size': remote_size,
+      'status': 'exists'
+    })
 
-    v_ego_cluster = max(carState.vEgoCluster, v_ego)
-    v_ego_diff = v_ego_cluster - v_ego
+  for model_name in available_models:
+    if model_name not in local_models:
+      remote_url = f"{repo_url}Models/{model_name}.thneed"
+      remote_size = get_remote_file_size(remote_url)
+      if remote_size is None:
+        remote_size = 'Unknown'
 
-    # Pfeiferj's Map Turn Speed Controller
-    if frogpilot_toggles.map_turn_speed_controller and v_ego > CRUISING_SPEED and controlsState.enabled:
-      mtsc_active = self.mtsc_target < v_cruise
-      self.mtsc_target = clip(self.mtsc.target_speed(v_ego, carState.aEgo), CRUISING_SPEED, v_cruise)
+      missing_models_info.append({
+        'model': model_name,
+        'remote_size': remote_size,
+        'status': 'missing'
+      })
 
-      if frogpilot_toggles.mtsc_curvature_check and self.frogpilot_planner.road_curvature < 1.0 and not mtsc_active:
-        self.mtsc_target = v_cruise
-      if self.mtsc_target == CRUISING_SPEED:
-        self.mtsc_target = v_cruise
+  return existing_models_info, missing_models_info
+
+def process_model_name(model_name):
+  cleaned_name = re.sub(r'[🗺️👀📡]', '', model_name)
+  cleaned_name = re.sub(r'[^a-zA-Z0-9()-]', '', cleaned_name)
+  return cleaned_name.replace(' ', '').replace('(Default)', '').replace('-', '')
+
+class ModelManager:
+  def __init__(self):
+    self.params = Params()
+    self.params_memory = Params("/dev/shm/params")
+
+    self.cancel_download_param = "CancelModelDownload"
+    self.download_param = "ModelToDownload"
+    self.download_progress_param = "ModelDownloadProgress"
+
+  def handle_verification_failure(self, model, model_path):
+    if self.params_memory.get_bool(self.cancel_download_param):
+      return
+
+    print(f"Verification failed for model {model}. Retrying from GitLab...")
+    model_url = f"{GITLAB_URL}Models/{model}.thneed"
+    download_file(self.cancel_download_param, model_path, self.download_progress_param, model_url, self.download_param, self.params_memory)
+
+    if verify_download(model_path, model_url):
+      print(f"Model {model} redownloaded and verified successfully from GitLab.")
     else:
-      self.mtsc_target = v_cruise if v_cruise != V_CRUISE_UNSET else 0
+      handle_error(model_path, "GitLab verification failed", "Verification failed", self.download_param, self.download_progress_param, self.params_memory)
 
-    # Pfeiferj's Speed Limit Controller
-    if frogpilot_toggles.speed_limit_controller:
-      self.slc.update(frogpilotCarState.dashboardSpeedLimit, controlsState.enabled, frogpilotNavigation.navigationSpeedLimit, v_cruise, v_ego, frogpilot_toggles)
-      unconfirmed_slc_target = self.slc.desired_speed_limit
+  def download_model(self, model_to_download):
+    model_path = os.path.join(MODELS_PATH, f"{model_to_download}.thneed")
+    if os.path.isfile(model_path):
+      handle_error(model_path, "Model already exists...", "Model already exists...", self.download_param, self.download_progress_param, self.params_memory)
+      return
 
-      if frogpilot_toggles.speed_limit_confirmation and self.slc_target != 0:
-        self.speed_limit_changed = unconfirmed_slc_target != self.previous_speed_limit and abs(self.slc_target - unconfirmed_slc_target) > 1
+    repo_url = get_repository_url()
+    if not repo_url:
+      handle_error(model_path, "GitHub and GitLab are offline...", "Repository unavailable", self.download_param, self.download_progress_param, self.params_memory)
+      return
 
-        speed_limit_decreased = self.speed_limit_changed and self.slc_target > unconfirmed_slc_target
-        speed_limit_increased = self.speed_limit_changed and self.slc_target < unconfirmed_slc_target
+    model_url = f"{repo_url}Models/{model_to_download}.thneed"
+    print(f"Downloading model: {model_to_download}")
+    download_file(self.cancel_download_param, model_path, self.download_progress_param, model_url, self.download_param, self.params_memory)
 
-        accepted_via_ui = self.params_memory.get_bool("SLCConfirmedPressed") and self.params_memory.get_bool("SLCConfirmed")
-        denied_via_ui = self.params_memory.get_bool("SLCConfirmedPressed") and not self.params_memory.get_bool("SLCConfirmed")
+    if verify_download(model_path, model_url):
+      print(f"Model {model_to_download} downloaded and verified successfully!")
+      self.params_memory.put(self.download_progress_param, "Downloaded!")
+      self.params_memory.remove(self.download_param)
+    else:
+      self.handle_verification_failure(model_to_download, model_path)
 
-        speed_limit_accepted = frogpilotCarControl.resumePressed or accepted_via_ui
-        speed_limit_denied = any(be.type == ButtonType.decelCruise for be in carState.buttonEvents) or denied_via_ui or self.speed_limit_timer >= 10
+  def fetch_models(self, url):
+    try:
+      with urllib.request.urlopen(url, timeout=10) as response:
+        return json.loads(response.read().decode('utf-8'))['models']
+    except Exception as error:
+      handle_request_error(error, None, None, None, None)
+      return []
 
-        if speed_limit_accepted or speed_limit_denied:
-          self.previous_speed_limit = unconfirmed_slc_target
-          self.params_memory.put_bool("SLCConfirmed", False)
-          self.params_memory.put_bool("SLCConfirmedPressed", False)
+  def update_model_params(self, model_info, repo_url):
+    available_models, available_model_names, experimental_models, navigation_models, radarless_models = [], [], [], [], []
 
-        if speed_limit_decreased:
-          speed_limit_confirmed = not frogpilot_toggles.speed_limit_confirmation_lower or speed_limit_accepted
-        elif speed_limit_increased:
-          speed_limit_confirmed = not frogpilot_toggles.speed_limit_confirmation_higher or speed_limit_accepted
-        else:
-          speed_limit_confirmed = False
+    for model in model_info:
+      available_models.append(model['id'])
+      available_model_names.append(model['name'])
 
-        if self.speed_limit_changed:
-          self.speed_limit_timer += DT_MDL
-        else:
-          self.speed_limit_timer = 0
+      if model.get("experimental", False):
+        experimental_models.append(model['id'])
+      if "🗺️" in model['name']:
+        navigation_models.append(model['id'])
+      if "📡" not in model['name']:
+        radarless_models.append(model['id'])
 
-        if speed_limit_confirmed:
-          self.slc.update_previous_limit(unconfirmed_slc_target)
-          self.slc_target = unconfirmed_slc_target
-          self.speed_limit_changed = False
+    self.params.put_nonblocking("AvailableModels", ','.join(available_models))
+    self.params.put_nonblocking("AvailableModelsNames", ','.join(available_model_names))
+    self.params.put_nonblocking("ExperimentalModels", ','.join(experimental_models))
+    self.params.put_nonblocking("NavigationModels", ','.join(navigation_models))
+    self.params.put_nonblocking("RadarlessModels", ','.join(radarless_models))
+    print("Models list updated successfully.")
+
+    if available_models:
+      models_downloaded = self.are_all_models_downloaded(available_models, available_model_names, repo_url)
+      self.params.put_bool_nonblocking("ModelsDownloaded", models_downloaded)
+
+  def are_all_models_downloaded(self, available_models, available_model_names, repo_url):
+    automatically_update_models = self.params.get_bool("AutomaticallyUpdateModels")
+    all_models_downloaded = True
+
+    existing_models_info, missing_models_info = list_existing_models(available_models, repo_url)
+    redownload_info = []
+
+    existing_items = os.listdir(MODELS_PATH)
+
+    for model in available_models:
+      model_path = os.path.join(MODELS_PATH, f"{model}.thneed")
+      model_url = f"{repo_url}Models/{model}.thneed"
+
+      if os.path.isfile(model_path):
+        if automatically_update_models:
+          verify_result = verify_download(model_path, model_url)
+          if verify_result is None:
+            all_models_downloaded = False
+          elif not verify_result:
+            print(f"Model {model} is outdated. Re-downloading...")
+            delete_file(model_path)
+            self.remove_model_params(available_model_names, available_models, model)
+            self.queue_model_download(model)
+            all_models_downloaded = False
+            redownload_info.append(f"{model} is outdated")
       else:
-        self.slc_target = unconfirmed_slc_target
+        if automatically_update_models:
+          print(f"Model {model} isn't downloaded. Downloading...")
+          self.remove_model_params(available_model_names, available_models, model)
+          self.queue_model_download(model)
+        all_models_downloaded = False
+        redownload_info.append(f"{model} isn't downloaded")
 
-      self.override_slc = self.overridden_speed > self.slc_target
-      self.override_slc |= carState.gasPressed and v_ego > self.slc_target
-      self.override_slc &= controlsState.enabled
+    if automatically_update_models and not all_models_downloaded:
+      with sentry.sentry_sdk.configure_scope() as scope:
+        scope.set_extra("existing_items", existing_items)
+        scope.set_extra("existing_models", existing_models_info)
+        scope.set_extra("missing_models", missing_models_info)
+        scope.set_extra("redownload_info", redownload_info)
+        sentry.sentry_sdk.capture_message("Models automatically updated", level='info')
 
-      if self.override_slc:
-        if frogpilot_toggles.speed_limit_controller_override_manual:
-          if carState.gasPressed:
-            self.overridden_speed = v_ego + v_ego_diff
-          self.overridden_speed = clip(self.overridden_speed, self.slc_target, v_cruise + v_cruise_diff)
-        elif frogpilot_toggles.speed_limit_controller_override_set_speed:
-          self.overridden_speed = v_cruise + v_cruise_diff
+    return all_models_downloaded
+
+  def remove_model_params(self, available_model_names, available_models, model):
+    part_model_param = process_model_name(available_model_names[available_models.index(model)])
+    try:
+      self.params.check_key(part_model_param + "CalibrationParams")
+    except UnknownKeyName:
+      return
+    self.params.remove(part_model_param + "CalibrationParams")
+    self.params.remove(part_model_param + "LiveTorqueParameters")
+
+  def queue_model_download(self, model, model_name=None):
+    while self.params_memory.get(self.download_param, encoding='utf-8'):
+      time.sleep(1)
+
+    self.params_memory.put(self.download_param, model)
+    if model_name:
+      self.params_memory.put(self.download_progress_param, f"Downloading {model_name}...")
+
+  def validate_models(self, repo_url):
+    current_model = self.params.get("Model", encoding='utf-8')
+    current_model_name = self.params.get("ModelName", encoding='utf-8')
+
+    if "(Default)" in current_model_name and current_model_name != DEFAULT_MODEL_NAME:
+      self.params.put_nonblocking("ModelName", current_model_name.replace(" (Default)", ""))
+
+    available_models = self.params.get("AvailableModels", encoding='utf-8')
+    if not available_models:
+      return
+
+    current_model_path = os.path.join(MODELS_PATH, f"{current_model}.thneed")
+    if not os.path.isfile(current_model_path):
+      print(f"Model {current_model} is not downloaded. Downloading...")
+      self.download_model(current_model)
+
+    existing_items = os.listdir(MODELS_PATH)
+    redownload_info = []
+    deletion_info = []
+
+    for model_file in existing_items:
+      model_name = model_file.replace(".thneed", "")
+      if model_name not in available_models.split(','):
+        reason = "Model is not in the list of available models"
+        if model_name == current_model:
+          self.params.put_nonblocking("Model", DEFAULT_MODEL)
+          self.params.put_nonblocking("ModelName", DEFAULT_MODEL_NAME)
+          reason += " and was the current model, so reset to default"
+        delete_file(os.path.join(MODELS_PATH, model_file))
+        print(f"Deleted model file: {model_file} - Reason: {reason}")
+        deletion_info.append(f"{model_file}: {reason}")
+
+    existing_models_info, missing_models_info = list_existing_models(available_models.split(','), repo_url)
+
+    with sentry.sentry_sdk.configure_scope() as scope:
+      scope.set_extra("existing_items", existing_items)
+      scope.set_extra("existing_models", existing_models_info)
+      scope.set_extra("missing_models", missing_models_info)
+      scope.set_extra("redownload_info", redownload_info)
+      scope.set_extra("deletion_info", deletion_info)
+      sentry.sentry_sdk.capture_message("Model validation and cleanup completed", level='info')
+
+  def copy_default_model(self):
+    default_model_path = os.path.join(MODELS_PATH, f"{DEFAULT_MODEL}.thneed")
+
+    if not os.path.isfile(default_model_path):
+      source_path = os.path.join(BASEDIR, "selfdrive", "modeld", "models", "supercombo.thneed")
+
+      if os.path.isfile(source_path):
+        shutil.copyfile(source_path, default_model_path)
+        print(f"Copied default model from {source_path} to {default_model_path}")
       else:
-        self.overridden_speed = 0
-    else:
-      self.slc_target = 0
+        print(f"Source default model not found at {source_path}. Exiting...")
 
-    # Pfeiferj's Vision Turn Controller
-    if frogpilot_toggles.vision_turn_controller and v_ego > CRUISING_SPEED and controlsState.enabled:
-      adjusted_road_curvature = self.frogpilot_planner.road_curvature * frogpilot_toggles.curve_sensitivity
-      adjusted_target_lat_a = TARGET_LAT_A * frogpilot_toggles.turn_aggressiveness
+  def update_models(self, boot_run=False):
+    if boot_run:
+      self.copy_default_model()
 
-      self.vtsc_target = (adjusted_target_lat_a / adjusted_road_curvature)**0.5
-      self.vtsc_target = clip(self.vtsc_target, CRUISING_SPEED, v_cruise)
-    else:
-      self.vtsc_target = v_cruise if v_cruise != V_CRUISE_UNSET else 0
+    repo_url = get_repository_url()
+    if repo_url is None:
+      print("GitHub and GitLab are offline...")
+      return
 
-    if frogpilot_toggles.force_standstill and carState.standstill and not self.override_force_stop and controlsState.enabled:
-      self.forcing_stop = True
-      v_cruise = -1
+    model_info = self.fetch_models(f"{repo_url}Versions/model_names_{VERSION}.json")
+    if model_info:
+      self.update_model_params(model_info, repo_url)
 
-    elif frogpilot_toggles.force_stops and self.frogpilot_planner.cem.stop_light_detected and not self.override_force_stop and controlsState.enabled:
-      if self.tracked_model_length == 0:
-        self.tracked_model_length = self.model_length
+    if boot_run:
+      self.validate_models(repo_url)
 
-      self.forcing_stop = True
-      self.tracked_model_length -= v_ego * DT_MDL
-      v_cruise = min((self.tracked_model_length / PLANNER_TIME) - 1, v_cruise)
+  def download_all_models(self):
+    repo_url = get_repository_url()
+    if not repo_url:
+      handle_error(None, "GitHub and GitLab are offline...", "Repository unavailable", self.download_param, self.download_progress_param, self.params_memory)
+      return
 
-    else:
-      if not self.frogpilot_planner.cem.stop_light_detected:
-        self.override_force_stop = False
+    model_info = self.fetch_models(f"{repo_url}Versions/model_names_{VERSION}.json")
+    if not model_info:
+      handle_error(None, "Unable to update model list...", "Model list unavailable", self.download_param, self.download_progress_param, self.params_memory)
+      return
 
-      self.forcing_stop = False
-      self.tracked_model_length = 0
+    available_models = self.params.get("AvailableModels", encoding='utf-8')
+    if not available_models:
+      handle_error(None, "There's no model to download...", "There's no model to download...", self.download_param, self.download_progress_param, self.params_memory)
+      return
 
-      targets = [self.mtsc_target, max(self.overridden_speed, self.slc_target) - v_ego_diff, self.vtsc_target]
-      v_cruise = float(min([target if target > CRUISING_SPEED else v_cruise for target in targets]))
+    available_models = available_models.split(',')
+    available_model_names = self.params.get("AvailableModelsNames", encoding='utf-8').split(',')
 
-    return v_cruise
+    for model in available_models:
+      if self.params_memory.get_bool(self.cancel_download_param):
+        return
+
+      if not os.path.isfile(os.path.join(MODELS_PATH, f"{model}.thneed")):
+        model_index = available_models.index(model)
+        model_name = available_model_names[model_index]
+
+        cleaned_model_name = re.sub(r'[🗺️👀📡]', '', model_name).strip()
+        print(f"Downloading model: {cleaned_model_name}")
+
+        self.queue_model_download(model, cleaned_model_name)
+
+        while self.params_memory.get(self.download_param, encoding='utf-8'):
+          time.sleep(1)
+
+    while not all(os.path.isfile(os.path.join(MODELS_PATH, f"{model}.thneed")) for model in available_models):
+      time.sleep(1)
+
+    self.params_memory.put(self.download_progress_param, "All models downloaded!")
+    self.params_memory.remove("DownloadAllModels")
+    self.params.put_bool_nonblocking("ModelsDownloaded", True)
