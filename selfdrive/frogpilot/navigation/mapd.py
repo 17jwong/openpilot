@@ -41,12 +41,10 @@ def download(current_version):
       with urllib.request.urlopen(url, timeout=5) as f:
         with open(MAPD_PATH, 'wb') as output:
           output.write(f.read())
-          os.fsync(output)
-          os.chmod(MAPD_PATH, os.stat(MAPD_PATH).st_mode | stat.S_IEXEC)
+        os.chmod(MAPD_PATH, os.stat(MAPD_PATH).st_mode | stat.S_IEXEC)
 
         with open(VERSION_PATH, 'w') as version_file:
           version_file.write(current_version)
-          os.fsync(version_file)
 
       print(f"Successfully downloaded mapd from {url}")
       return True
@@ -58,10 +56,13 @@ def download(current_version):
 
 def ensure_mapd_is_running():
   while True:
-    try:
-      subprocess.run([MAPD_PATH], check=True)
-    except Exception as e:
-      print(f"Error running mapd process: {e}")
+    if os.path.exists(MAPD_PATH):
+      try:
+        subprocess.run([MAPD_PATH], check=True)
+      except Exception as e:
+        print(f"Error running mapd process: {e}")
+    else:
+      print(f"Error: {MAPD_PATH} does not exist.")
     time.sleep(1)
 
 def mapd_thread(sm=None, pm=None):
@@ -72,13 +73,7 @@ def mapd_thread(sm=None, pm=None):
       if is_url_pingable("https://github.com"):
         current_version = get_latest_version()
         if current_version:
-          if not os.path.exists(MAPD_PATH):
-            if download(current_version):
-              continue
-          if not os.path.exists(VERSION_PATH):
-            if download(current_version):
-              continue
-          if open(VERSION_PATH).read() != current_version:
+          if not os.path.exists(MAPD_PATH) or not os.path.exists(VERSION_PATH) or open(VERSION_PATH).read() != current_version:
             if download(current_version):
               continue
       ensure_mapd_is_running()
