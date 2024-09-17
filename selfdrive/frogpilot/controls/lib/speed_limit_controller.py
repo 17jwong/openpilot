@@ -81,7 +81,6 @@ class SpeedLimitController:
   @property
   def desired_speed_limit(self):
     if self.speed_limit > 1:
-      self.update_previous_limit(self.speed_limit)
       return self.speed_limit + self.offset
     return 0
 
