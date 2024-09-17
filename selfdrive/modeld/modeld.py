@@ -39,6 +39,7 @@ CLAIRVOYANT_DRIVER = frogpilot_toggles.clairvoyant_driver or frogpilot_toggles.c
 DISABLE_NAV = frogpilot_toggles.navigationless_model
 DISABLE_RADAR = frogpilot_toggles.radarless_model
 SECRET_GOOD_OPENPILOT = frogpilot_toggles.secretgoodopenpilot_model
+TOMB_RAIDER = frogpilot_toggles.tomb_raider
 
 MODEL_PATHS = {
   ModelRunner.THNEED: Path(__file__).parent / ('models/supercombo.thneed' if MODEL_NAME == DEFAULT_MODEL else f'{MODELS_PATH}/{MODEL_NAME}.thneed'),
@@ -46,7 +47,7 @@ MODEL_PATHS = {
 
 metadata_file = (
   'secret-good-openpilot_metadata.pkl' if SECRET_GOOD_OPENPILOT else
-  'clairvoyant-driver_metadata.pkl' if CLAIRVOYANT_DRIVER else
+  'clairvoyant-driver_metadata.pkl' if CLAIRVOYANT_DRIVER or TOMB_RAIDER else
   'supercombo_metadata.pkl'
 )
 METADATA_PATH = Path(__file__).parent / f'models/{metadata_file}'
@@ -164,7 +165,7 @@ class ModelState:
       return None
 
     self.model.execute()
-    outputs = self.parser.parse_outputs(self.slice_outputs(self.output), CLAIRVOYANT_DRIVER, SECRET_GOOD_OPENPILOT)
+    outputs = self.parser.parse_outputs(self.slice_outputs(self.output), CLAIRVOYANT_DRIVER, SECRET_GOOD_OPENPILOT, TOMB_RAIDER)
 
     if SECRET_GOOD_OPENPILOT:
       self.full_features_20Hz[:-1] = self.full_features_20Hz[1:]
@@ -370,8 +371,8 @@ def main(demo=False):
       posenet_send = messaging.new_message('cameraOdometry')
       fill_model_msg(modelv2_send, model_output, publish_state, meta_main.frame_id, meta_extra.frame_id, frame_id, frame_drop_ratio,
                      meta_main.timestamp_eof, timestamp_llk, model_execution_time, live_calib_seen, nav_enabled,
-                     CLAIRVOYANT_DRIVER, SECRET_GOOD_OPENPILOT)
-
+                     CLAIRVOYANT_DRIVER, SECRET_GOOD_OPENPILOT, TOMB_RAIDER)
+      
       desire_state = modelv2_send.modelV2.meta.desireState
       l_lane_change_prob = desire_state[log.Desire.laneChangeLeft]
       r_lane_change_prob = desire_state[log.Desire.laneChangeRight]
