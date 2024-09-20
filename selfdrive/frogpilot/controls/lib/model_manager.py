@@ -150,7 +150,7 @@ class ModelManager:
 
       if os.path.isfile(model_path):
         if automatically_update_models:
-          verify_result = verify_download(model_path, model_url)
+          verify_result = verify_download(model_path, model_url, False)
           if verify_result is None:
             all_models_downloaded = False
           elif not verify_result:
