@@ -1,6 +1,7 @@
 import datetime
 import os
 import threading
+import time
 
 from cereal import log, messaging
 from openpilot.common.params import Params
@@ -46,6 +47,8 @@ def automatic_update_check(started, params):
   if update_ready and not started:
     HARDWARE.reboot()
   elif update_available:
+    os.system("pkill -SIGUSR1 -f system.updated.updated")
+    time.sleep(30)
     os.system("pkill -SIGHUP -f system.updated.updated")
   elif update_state_idle:
     os.system("pkill -SIGUSR1 -f system.updated.updated")
@@ -72,14 +75,13 @@ def download_assets(model_manager, theme_manager, params, params_memory):
     if asset_to_download:
       run_thread_with_lock("download_theme", theme_manager.download_theme, (asset_type, asset_to_download, param))
 
-def time_checks(automatic_updates, deviceState, model_manager, now, started, theme_manager, params, params_memory):
+def time_checks(automatic_updates, deviceState, model_manager, now, screen_off, started, theme_manager, params, params_memory):
   if deviceState.networkType != WIFI:
     return
 
   if not is_url_pingable("https://github.com"):
     return
 
-  screen_off = deviceState.screenBrightnessPercent == 0
   if automatic_updates and screen_off:
     automatic_update_check(started, params)
 
@@ -159,6 +161,7 @@ def frogpilot_thread():
 
     now = datetime.datetime.now()
     deviceState = sm['deviceState']
+    screen_off = deviceState.screenBrightnessPercent == 0
     started = deviceState.started
 
     if not started and started_previously:
@@ -189,10 +192,12 @@ def frogpilot_thread():
 
     download_assets(model_manager, theme_manager, params, params_memory)
 
-    if now.second == 0:
-      run_time_checks = True
+    if params_memory.get_bool("ManualUpdateInitiated"):
+      run_thread_with_lock("time_checks", time_checks, (False, deviceState, model_manager, now, screen_off, started, theme_manager, params, params_memory))
+    elif now.second == 0:
+      run_time_checks = not screen_off and not started or now.minute % 15 == 0
     elif run_time_checks or not time_validated:
-      run_thread_with_lock("time_checks", time_checks, (frogpilot_toggles.automatic_updates, deviceState, model_manager, now, started, theme_manager, params, params_memory))
+      run_thread_with_lock("time_checks", time_checks, (frogpilot_toggles.automatic_updates, deviceState, model_manager, now, screen_off, started, theme_manager, params, params_memory))
       run_time_checks = False
 
       if not time_validated:
