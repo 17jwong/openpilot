@@ -39,7 +39,7 @@ def plannerd_thread():
 
   clairvoyant_driver = frogpilot_toggles.clairvoyant_driver
   tomb_raider = frogpilot_toggles.tomb_raider
-  e2e_longitudinal_model = clairvoyant_driver or frogpilot_toggles.secretgoodopenpilot_model or tomb_raider
+  e2e_longitudinal_model = clairvoyant_driver or frogpilot_toggles.secretgoodopenpilot_model
   radarless_model = frogpilot_toggles.radarless_model
   
   update_toggles = False
