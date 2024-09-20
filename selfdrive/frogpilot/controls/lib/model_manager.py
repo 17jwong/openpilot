@@ -67,6 +67,9 @@ class ModelManager:
     self.download_param = "ModelToDownload"
     self.download_progress_param = "ModelDownloadProgress"
 
+    self.deletion_info = []
+
+
   def handle_verification_failure(self, model, model_path):
     if self.params_memory.get_bool(self.cancel_download_param):
       return
@@ -144,6 +147,7 @@ class ModelManager:
 
     existing_items = os.listdir(MODELS_PATH)
 
+    download_queue = []
     for model in available_models:
       model_path = os.path.join(MODELS_PATH, f"{model}.thneed")
       model_url = f"{repo_url}Models/{model}.thneed"
@@ -157,25 +161,27 @@ class ModelManager:
             print(f"Model {model} is outdated. Re-downloading...")
             delete_file(model_path)
             self.remove_model_params(available_model_names, available_models, model)
-            self.queue_model_download(model)
+            download_queue.append(model)
             all_models_downloaded = False
             redownload_info.append(f"{model} is outdated")
       else:
         if automatically_update_models:
           print(f"Model {model} isn't downloaded. Downloading...")
           self.remove_model_params(available_model_names, available_models, model)
-          self.queue_model_download(model)
+          download_queue.append(model)
         all_models_downloaded = False
         redownload_info.append(f"{model} isn't downloaded")
 
     if automatically_update_models and not all_models_downloaded:
       import openpilot.system.sentry as sentry
       with sentry.sentry_sdk.configure_scope() as scope:
-        scope.set_extra("existing_items", existing_items)
-        scope.set_extra("existing_models", existing_models_info)
-        scope.set_extra("missing_models", missing_models_info)
-        scope.set_extra("redownload_info", redownload_info)
-        sentry.sentry_sdk.capture_message("Models automatically updated", level='info')
+        scope.set_extra("existing_models", sorted(existing_models_info, key=lambda x: x['model']))
+        scope.set_extra("missing_models", sorted(missing_models_info, key=lambda x: x['model']))
+        scope.set_extra("deletion_info", sorted(self.deletion_info))
+        scope.set_extra("redownload_info", sorted(redownload_info))
+        sentry.sentry_sdk.capture_message("Models validated and automatically updated", level='info')
+    for model in download_queue:
+      self.queue_model_download(model)
 
     return all_models_downloaded
 
@@ -196,7 +202,7 @@ class ModelManager:
     if model_name:
       self.params_memory.put(self.download_progress_param, f"Downloading {model_name}...")
 
-  def validate_models(self, repo_url):
+  def validate_models(self):
     current_model = self.params.get("Model", encoding='utf-8')
     current_model_name = self.params.get("ModelName", encoding='utf-8')
 
@@ -212,36 +218,16 @@ class ModelManager:
       print(f"Model {current_model} is not downloaded. Downloading...")
       self.download_model(current_model)
 
-    existing_items = os.listdir(MODELS_PATH)
-    redownload_info = []
-    deletion_info = []
-
-    models_deleted = False
-
-    for model_file in existing_items:
+    for model_file in os.listdir(MODELS_PATH):
       model_name = model_file.replace(".thneed", "")
       if model_name not in available_models.split(','):
         reason = "Model is not in the list of available models"
         if model_name == current_model:
           self.params.put_nonblocking("Model", DEFAULT_MODEL)
           self.params.put_nonblocking("ModelName", DEFAULT_MODEL_NAME)
-          reason += " and was the current model, so reset to default"
         delete_file(os.path.join(MODELS_PATH, model_file))
-        models_deleted = True
         print(f"Deleted model file: {model_file} - Reason: {reason}")
-        deletion_info.append(f"{model_file}: {reason}")
-
-    existing_models_info, missing_models_info = list_existing_models(available_models.split(','), repo_url)
-
-    if self.params.get_bool("AutomaticallyUpdateModels") and models_deleted:
-      import openpilot.system.sentry as sentry
-      with sentry.sentry_sdk.configure_scope() as scope:
-        scope.set_extra("existing_items", existing_items)
-        scope.set_extra("existing_models", existing_models_info)
-        scope.set_extra("missing_models", missing_models_info)
-        scope.set_extra("redownload_info", redownload_info)
-        scope.set_extra("deletion_info", deletion_info)
-        sentry.sentry_sdk.capture_message("Model validation and cleanup completed", level='info')
+        self.deletion_info.append(f"{model_file}: {reason}")
 
   def copy_default_model(self):
     default_model_path = os.path.join(MODELS_PATH, f"{DEFAULT_MODEL}.thneed")
@@ -269,7 +255,7 @@ class ModelManager:
       self.update_model_params(model_info, repo_url)
 
     if boot_run:
-      self.validate_models(repo_url)
+      self.validate_models()
 
   def download_all_models(self):
     repo_url = get_repository_url()
