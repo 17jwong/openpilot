@@ -167,6 +167,15 @@ class FrogPilotVariables:
 
     lateral_tune = self.params.get_bool("LateralTune")
     toggle.force_auto_tune = lateral_tune and self.params.get_bool("ForceAutoTune")
+    stock_steer_friction = self.params.get_float("SteerFrictionStock")
+    toggle.steer_friction = self.params.get_float("SteerFriction") if advanced_lateral_tune else stock_steer_friction
+    toggle.use_custom_steer_friction = toggle.steer_friction != stock_steer_friction
+    stock_steer_lat_accel_factor = self.params.get_float("SteerLatAccelStock")
+    toggle.steer_lat_accel_factor = self.params.get_float("SteerLatAccel") if advanced_lateral_tune else stock_steer_lat_accel_factor
+    toggle.use_custom_lat_accel_factor = toggle.steer_lat_accel_factor != stock_steer_lat_accel_factor
+    stock_steer_kp = self.params.get_float("SteerKPStock")
+    toggle.steer_kp = self.params.get_float("SteerKP") if advanced_lateral_tune else stock_steer_kp
+    toggle.use_custom_kp = toggle.steer_kp != stock_steer_kp
     stock_steer_ratio = self.params.get_float("SteerRatioStock")
     toggle.steer_ratio = self.params.get_float("SteerRatio") if lateral_tune else stock_steer_ratio
     toggle.use_custom_steer_ratio = toggle.steer_ratio != stock_steer_ratio
