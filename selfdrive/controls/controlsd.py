@@ -634,7 +634,7 @@ class Controls:
       actuators.steer, actuators.steeringAngleDeg, lac_log = self.LaC.update(CC.latActive, CS, self.VM, lp,
                                                                              self.steer_limited, self.desired_curvature,
                                                                              self.sm['liveLocationKalman'],
-                                                                             model_data=self.sm['modelV2'])
+                                                                             model_data=self.sm['modelV2'], frogpilot_toggles=self.frogpilot_toggles)
     else:
       lac_log = log.ControlsState.LateralDebugState.new_message()
       if self.sm.recv_frame['testJoystick'] > 0:
