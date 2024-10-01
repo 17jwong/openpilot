@@ -132,7 +132,7 @@ class CarController(CarControllerBase):
 
       # Override acc_output to 0 if the MRCC is accelerating (CS.acc["ACCEL_CMD"] > 0) 
       # but Openpilot is requesting braking (CC.actuators.accel < 0)
-      if CS.acc["ACCEL_CMD"] > 0 and CC.actuators.accel < 0:
+      if CS.acc["ACCEL_CMD"] > 0 and CC.actuators.accel < 0 and not self.params_memory.get_int("CEStatus"):
         acc_output = 0
 
       resume = False
