@@ -105,7 +105,14 @@ class CarController(CarControllerBase):
           can_sends.extend(mazdacan.create_radar_command(self.packer, self.frame, CC.longActive, CS, hold))
 
     else:
-      raw_acc_output = (CC.actuators.accel * 240) + 2000
+      #Reset ACC output on resume
+      if (CC.cruiseControl.resume or CC.cruiseControl.override or CS.out.gasPressed or
+                (CC.actuators.longControlState == LongCtrlState.starting) or CS.acc["RESUME"]):
+        raw_acc_output = 0
+        self.filtered_acc_last = 0
+      else:
+        raw_acc_output = (CC.actuators.accel * 240) + 2000
+        
       if self.params.get_bool("BlendedACC"):
         if self.params_memory.get_int("CEStatus"):
           self.acc_filter.update_alpha(abs(raw_acc_output-self.filtered_acc_last)/1000)
@@ -122,6 +129,11 @@ class CarController(CarControllerBase):
 
       if self.params.get_bool("ExperimentalLongitudinalEnabled") and CC.longActive:
         CS.acc["ACCEL_CMD"] = acc_output
+
+      # Override acc_output to 0 if the MRCC is accelerating (CS.acc["ACCEL_CMD"] > 0) 
+      # but Openpilot is requesting braking (CC.actuators.accel < 0)
+      if CS.acc["ACCEL_CMD"] > 0 and CC.actuators.accel < 0:
+        acc_output = 0
 
       resume = False
       hold = False
