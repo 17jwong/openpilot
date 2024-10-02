@@ -109,6 +109,7 @@ class CarController(CarControllerBase):
           can_sends.extend(mazdacan.create_radar_command(self.packer, self.frame, CC.longActive, CS, hold))
 
     else: #GEN2 cars
+      
       #Reset ACC output on resume
       if is_resuming():
         raw_acc_output = CS.acc["ACCEL_CMD"]
@@ -123,16 +124,20 @@ class CarController(CarControllerBase):
         else:
           # we want to use the stock value in this case but we need a smooth transition.
           self.acc_filter.update_alpha(abs(CS.acc["ACCEL_CMD"]-self.filtered_acc_last)/1000)
-          filtered_acc_output = int(self.acc_filter.update(CS.acc["ACCEL_CMD"]))
+          if CC.actuators.accel < -3.0: #Blend OP and stock ACC under moderate or greater braking
+            filtered_acc_output = int(self.acc_filter.update(CS.acc["ACCEL_CMD"]))
+          else:
+            filtered_acc_output = CS.acc["ACCEL_CMD"]
+          
 
         acc_output = filtered_acc_output
         self.filtered_acc_last = filtered_acc_output
       else:
         acc_output = raw_acc_output
 
-      # Override acc_output to 0 if the MRCC is accelerating (CS.acc["ACCEL_CMD"] > 0) 
-      # but Openpilot is requesting braking (CC.actuators.accel < 0)
-      if CS.acc["ACCEL_CMD"] > 2000 and CC.actuators.accel < 0 and not self.params_memory.get_int("CEStatus"):
+      # Override acc_output to 2000 (coasting) if the MRCC is accelerating (CS.acc["ACCEL_CMD"] > 2000) 
+      # but Openpilot is requesting braking (CC.actuators.accel < -0.1)
+      if CS.acc["ACCEL_CMD"] > 2000 and CC.actuators.accel < -0.1 and not self.params_memory.get_int("CEStatus"):
         acc_output = 2000
 
       if self.params.get_bool("ExperimentalLongitudinalEnabled") and CC.longActive:
