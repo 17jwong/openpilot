@@ -30,10 +30,12 @@ class CarController(CarControllerBase):
     self.params = Params()
     self.params_memory = Params("/dev/shm/params")
 
-  def is_resuming():
-    return (CC.cruiseControl.resume or CC.cruiseControl.override or CS.out.gasPressed or (CC.actuators.longControlState == LongCtrlState.starting) or CS.acc["RESUME"])
 
   def update(self, CC, CS, now_nanos, frogpilot_toggles):
+
+    def is_resuming():
+      return (CC.cruiseControl.resume or CC.cruiseControl.override or CS.out.gasPressed or (CC.actuators.longControlState == LongCtrlState.starting) or CS.acc["RESUME"])
+    
     can_sends = []
 
     apply_steer = 0
