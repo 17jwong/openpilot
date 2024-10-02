@@ -30,6 +30,8 @@ class CarController(CarControllerBase):
     self.params = Params()
     self.params_memory = Params("/dev/shm/params")
 
+  def is_resuming():
+    return (CC.cruiseControl.resume or CC.cruiseControl.override or CS.out.gasPressed or (CC.actuators.longControlState == LongCtrlState.starting) or CS.acc["RESUME"])
 
   def update(self, CC, CS, now_nanos, frogpilot_toggles):
     can_sends = []
@@ -104,12 +106,11 @@ class CarController(CarControllerBase):
         if self.frame % 2 == 0:
           can_sends.extend(mazdacan.create_radar_command(self.packer, self.frame, CC.longActive, CS, hold))
 
-    else:
+    else: #GEN2 cars
       #Reset ACC output on resume
-      if (CC.cruiseControl.resume or CC.cruiseControl.override or CS.out.gasPressed or
-                (CC.actuators.longControlState == LongCtrlState.starting) or CS.acc["RESUME"]):
-        raw_acc_output = 0
-        self.filtered_acc_last = 0
+      if is_resuming():
+        raw_acc_output = CS.acc["ACCEL_CMD"]
+        self.filtered_acc_last = CS.acc["ACCEL_CMD"]
       else:
         raw_acc_output = (CC.actuators.accel * 240) + 2000
         
@@ -127,13 +128,13 @@ class CarController(CarControllerBase):
       else:
         acc_output = raw_acc_output
 
-      if self.params.get_bool("ExperimentalLongitudinalEnabled") and CC.longActive:
-        CS.acc["ACCEL_CMD"] = acc_output
-
       # Override acc_output to 0 if the MRCC is accelerating (CS.acc["ACCEL_CMD"] > 0) 
       # but Openpilot is requesting braking (CC.actuators.accel < 0)
       if CS.acc["ACCEL_CMD"] > 0 and CC.actuators.accel < 0 and not self.params_memory.get_int("CEStatus"):
         acc_output = 0
+
+      if self.params.get_bool("ExperimentalLongitudinalEnabled") and CC.longActive:
+        CS.acc["ACCEL_CMD"] = acc_output
 
       resume = False
       hold = False
@@ -147,8 +148,7 @@ class CarController(CarControllerBase):
         """
         if CS.out.standstill: # if we're stopped
           if not self.hold_delay.active(): # and we have been stopped for more than hold_delay duration. This prevents a hard brake if we aren't fully stopped.
-            if (CC.cruiseControl.resume or CC.cruiseControl.override or CS.out.gasPressed or
-                (CC.actuators.longControlState == LongCtrlState.starting) or CS.acc["RESUME"]): # and we want to resume
+            if is_resuming(): # and we want to resume
               self.resume_timer.reset() # reset the resume timer so its active
             else: # otherwise we're holding
               hold = self.hold_timer.active() # hold for 6s. This allows the electric brake to hold the car.
