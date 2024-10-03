@@ -261,6 +261,7 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"CESpeed", PERSISTENT | FROGPILOT_STORAGE | FROGPILOT_CONTROLS},
     {"CESpeedLead", PERSISTENT | FROGPILOT_STORAGE | FROGPILOT_CONTROLS},
     {"CEStatus", PERSISTENT},
+    {"CEFramesCounter", PERSISTENT},
     {"CEStoppedLead", PERSISTENT | FROGPILOT_STORAGE | FROGPILOT_CONTROLS},
     {"ClairvoyantDriverCalibrationParams", PERSISTENT},
     {"ClairvoyantDriverDrives", PERSISTENT | FROGPILOT_STORAGE | FROGPILOT_CONTROLS},
