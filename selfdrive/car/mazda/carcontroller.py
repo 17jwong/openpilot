@@ -29,6 +29,7 @@ class CarController(CarControllerBase):
     self.filtered_acc_last = 0
     self.params = Params()
     self.params_memory = Params("/dev/shm/params")
+    self.params_memory.put_int("CEFramesCounter", 0)
 
 
   def update(self, CC, CS, now_nanos, frogpilot_toggles):
@@ -111,21 +112,24 @@ class CarController(CarControllerBase):
     else: #GEN2 cars
       
       #Reset ACC output on resume
-      if is_resuming() and not self.params_memory.get_int("CEStatus"):
+      if is_resuming() and self.params_memory.get_int("CEFramesCounter") == 0: #Resume from chill mode, was not in CEM recently
         raw_acc_output = CS.acc["ACCEL_CMD"]
         self.filtered_acc_last = CS.acc["ACCEL_CMD"]
       else:
         raw_acc_output = (CC.actuators.accel * 240) + 2000
         
       if self.params.get_bool("BlendedACC"):
+        CEFramesCounter = self.params_memory.get_int("CEFramesCounter")
         if self.params_memory.get_int("CEStatus"):
           self.acc_filter.update_alpha(abs(raw_acc_output-self.filtered_acc_last)/1000)
           filtered_acc_output = int(self.acc_filter.update(raw_acc_output))
+          self.params_memory.put_int("CEFramesCounter", CEFramesCounter + 1 if CEFramesCounter < 20 else 20)
         else:
           # we want to use the stock value in this case but we need a smooth transition.
           self.acc_filter.update_alpha(abs(CS.acc["ACCEL_CMD"]-self.filtered_acc_last)/1000)
-          if CC.actuators.accel < -3.0: #Blend OP and stock ACC under moderate or greater braking
+          if CEFramesCounter > 0: #1 second or less since we transitioned to/from CEM
             filtered_acc_output = int(self.acc_filter.update(CS.acc["ACCEL_CMD"]))
+            self.params_memory.put_int("CEFramesCounter", CEFramesCounter - 1 if CEFramesCounter > 0 else 0)
           else:
             filtered_acc_output = CS.acc["ACCEL_CMD"]
           
