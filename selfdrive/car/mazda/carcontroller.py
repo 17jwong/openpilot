@@ -140,8 +140,8 @@ class CarController(CarControllerBase):
         acc_output = raw_acc_output
 
       # Override acc_output to 2000 (coasting) if the MRCC is accelerating (CS.acc["ACCEL_CMD"] > 2000) 
-      # but Openpilot is requesting braking (CC.actuators.accel < -0.2)
-      if CS.acc["ACCEL_CMD"] > 2000 and CC.actuators.accel < -0.2 and not self.params_memory.get_int("CEStatus"):
+      # but Openpilot is requesting braking (CC.actuators.accel < -0.5)
+      if CS.acc["ACCEL_CMD"] > 2000 and CC.actuators.accel < -0.5 and not self.params_memory.get_int("CEStatus"):
         acc_output = 2000
 
       if self.params.get_bool("ExperimentalLongitudinalEnabled") and CC.longActive:
