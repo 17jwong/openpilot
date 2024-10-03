@@ -111,7 +111,7 @@ class CarController(CarControllerBase):
     else: #GEN2 cars
       
       #Reset ACC output on resume
-      if is_resuming():
+      if is_resuming() and not self.params_memory.get_int("CEStatus"):
         raw_acc_output = CS.acc["ACCEL_CMD"]
         self.filtered_acc_last = CS.acc["ACCEL_CMD"]
       else:
@@ -137,7 +137,7 @@ class CarController(CarControllerBase):
 
       # Override acc_output to 2000 (coasting) if the MRCC is accelerating (CS.acc["ACCEL_CMD"] > 2000) 
       # but Openpilot is requesting braking (CC.actuators.accel < -0.1)
-      if CS.acc["ACCEL_CMD"] > 2000 and CC.actuators.accel < -0.1 and not self.params_memory.get_int("CEStatus"):
+      if CS.acc["ACCEL_CMD"] > 2000 and CC.actuators.accel < -0.2 and not self.params_memory.get_int("CEStatus"):
         acc_output = 2000
 
       if self.params.get_bool("ExperimentalLongitudinalEnabled") and CC.longActive:
