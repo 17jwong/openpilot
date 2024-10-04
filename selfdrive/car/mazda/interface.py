@@ -11,6 +11,8 @@ ButtonType = car.CarState.ButtonEvent.Type
 FrogPilotButtonType = custom.FrogPilotCarState.ButtonEvent.Type
 EventName = car.CarEvent.EventName
 
+params_memory = Params("/dev/shm/params")
+
 class CarInterface(CarInterfaceBase):
 
   @staticmethod
@@ -97,6 +99,8 @@ class CarInterface(CarInterfaceBase):
         events.add(EventName.steerTempUnavailable)
       #if (not self.CS.ti_lkas_allowed) and (self.CP.flags & MazdaFlags.TORQUE_INTERCEPTOR):
       #  events.add(EventName.steerTempUnavailable) # torqueInterceptorTemporaryWarning
+    if self.CS.acc["ACCEL_CMD"] > 2000 and c.actuators.accel < -0.5 and not params_memory.get_int("CEStatus"):
+      events.add(EventName.Coasting)
 
     ret.events = events.to_msg()
 
