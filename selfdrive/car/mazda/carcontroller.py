@@ -30,6 +30,7 @@ class CarController(CarControllerBase):
     self.params = Params()
     self.params_memory = Params("/dev/shm/params")
     self.params_memory.put_int("CEFramesCounter", 0)
+    self.params_memory.put_int("Coasting", 0)
 
 
   def update(self, CC, CS, now_nanos, frogpilot_toggles):
@@ -143,6 +144,9 @@ class CarController(CarControllerBase):
       # but Openpilot is requesting braking (CC.actuators.accel < -0.5)
       if CS.acc["ACCEL_CMD"] > 2000 and CC.actuators.accel < -0.5 and not self.params_memory.get_int("CEStatus"):
         acc_output = 2000
+        self.params_memory.put_int("Coasting", 1)
+      else:
+        self.params_memory.put_int("Coasting", 0)
 
       if self.params.get_bool("ExperimentalLongitudinalEnabled") and CC.longActive:
         CS.acc["ACCEL_CMD"] = acc_output
