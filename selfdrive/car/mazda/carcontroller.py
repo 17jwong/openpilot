@@ -114,7 +114,7 @@ class CarController(CarControllerBase):
       #Reset ACC output on resume
       if is_resuming() and self.params_memory.get_int("CEFramesCounter") == 0: #Resume from chill mode, was not in CEM recently
         raw_acc_output = CS.acc["ACCEL_CMD"]
-        self.filtered_acc_last = CS.acc["ACCEL_CMD"]
+        # self.filtered_acc_last = CS.acc["ACCEL_CMD"]
       else:
         raw_acc_output = (CC.actuators.accel * 240) + 2000
         
