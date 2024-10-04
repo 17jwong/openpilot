@@ -1190,7 +1190,7 @@ EVENTS: dict[int, dict[str, Alert | AlertCallbackType]] = {
       Priority.MID, VisualAlert.none, AudibleAlert.angry, 5.),
   },
 
-  EventName.Coasting: {
+  EventName.turningLeft: {
     ET.WARNING: Alert(
       "Coasting",
       AlertStatus.normal, AlertSize.small,
