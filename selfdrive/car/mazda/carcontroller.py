@@ -115,7 +115,7 @@ class CarController(CarControllerBase):
       #Reset ACC output on resume
       if is_resuming() and self.params_memory.get_int("CEFramesCounter") == 0: #Resume from chill mode, was not in CEM recently
         raw_acc_output = CS.acc["ACCEL_CMD"]
-        self.filtered_acc_last = CS.acc["ACCEL_CMD"]
+        #self.filtered_acc_last = CS.acc["ACCEL_CMD"]
       else:
         raw_acc_output = (CC.actuators.accel * 240) + 2000
         
@@ -141,14 +141,16 @@ class CarController(CarControllerBase):
         acc_output = raw_acc_output
 
       # Coasting control
-      if (CS.acc["ACCEL_CMD"] > 2000 and CC.actuators.accel < -0.5) or (CS.acc["ACCEL_CMD"] < 2000 and CC.actuators.accel > 0.5) and not self.params_memory.get_int("CEStatus"):
+      if (CS.acc["ACCEL_CMD"] > 2000 and CC.actuators.accel < -0.5) or (CS.acc["ACCEL_CMD"] < 2000 and CC.actuators.accel > 0.5) and self.params_memory.get_int("CEFramesCounter") == 0:
         acc_output = 2000
+        self.filtered_acc_last = 2000
         self.params_memory.put_int("Coasting", 1)
       else:
         self.params_memory.put_int("Coasting", 0)
 
       if self.params.get_bool("ExperimentalLongitudinalEnabled") and CC.longActive:
         CS.acc["ACCEL_CMD"] = acc_output
+        
 
       resume = False
       hold = False
