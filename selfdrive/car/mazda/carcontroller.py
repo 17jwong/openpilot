@@ -113,7 +113,7 @@ class CarController(CarControllerBase):
     else: #GEN2 cars
       
       #Reset ACC output on resume
-      if is_resuming() and not self.params.get_bool("BlendedACC") and self.params_memory.get_int("CEFramesCounter") == 0: #Resume from chill mode, was not in CEM recently
+      if is_resuming() and self.params.get_bool("BlendedACC") and self.params_memory.get_int("CEFramesCounter") == 0: #Resume from chill mode, was not in CEM recently
         raw_acc_output = CS.acc["ACCEL_CMD"]
         #self.filtered_acc_last = CS.acc["ACCEL_CMD"]
       else:
