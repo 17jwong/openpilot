@@ -121,13 +121,14 @@ class CarController(CarControllerBase):
         
       if self.params.get_bool("BlendedACC"):
         CEFramesCounter = self.params_memory.get_int("CEFramesCounter")
+        self.acc_filter.update_alpha(CEFramesCounter/500 + 0.01)
         if self.params_memory.get_int("CEStatus"):
-          self.acc_filter.update_alpha(abs(raw_acc_output-self.filtered_acc_last)/1000)
+          # self.acc_filter.update_alpha(abs(raw_acc_output-self.filtered_acc_last)/1000)
           filtered_acc_output = int(self.acc_filter.update(raw_acc_output))
           self.params_memory.put_int("CEFramesCounter", CEFramesCounter + 1 if CEFramesCounter < 20 else 20)
         else:
           # we want to use the stock value in this case but we need a smooth transition.
-          self.acc_filter.update_alpha(abs(CS.acc["ACCEL_CMD"]-self.filtered_acc_last)/1000)
+          # self.acc_filter.update_alpha(abs(CS.acc["ACCEL_CMD"]-self.filtered_acc_last)/1000)
           if CEFramesCounter > 0: #1 second or less since we transitioned to/from CEM
             filtered_acc_output = int(self.acc_filter.update(CS.acc["ACCEL_CMD"]))
             self.params_memory.put_int("CEFramesCounter", CEFramesCounter - 1 if CEFramesCounter > 0 else 0)
