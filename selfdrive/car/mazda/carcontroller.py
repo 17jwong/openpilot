@@ -126,14 +126,14 @@ class CarController(CarControllerBase):
           if is_resuming():
             self.acc_filter.update_alpha(0.01)
           else:
-            self.acc_filter.update_alpha((40 - CEFramesCounter)/500 + 0.05)
+            self.acc_filter.update_alpha((40 - CEFramesCounter)/1000 + 0.01)
           filtered_acc_output = int(self.acc_filter.update(raw_acc_output))
           self.params_memory.put_int("CEFramesCounter", CEFramesCounter + 1 if CEFramesCounter < 40 else 40)
         else:
           # we want to use the stock value in this case but we need a smooth transition.
           # self.acc_filter.update_alpha(abs(CS.acc["ACCEL_CMD"]-self.filtered_acc_last)/1000)
           if CEFramesCounter > 0: #2 seconds or less since we transitioned to/from CEM
-            self.acc_filter.update_alpha(CEFramesCounter/500 + 0.05)
+            self.acc_filter.update_alpha(CEFramesCounter/1000 + 0.01)
             filtered_acc_output = int(self.acc_filter.update(CS.acc["ACCEL_CMD"]))
             self.params_memory.put_int("CEFramesCounter", CEFramesCounter - 1 if CEFramesCounter > 0 else 0)
           else:
