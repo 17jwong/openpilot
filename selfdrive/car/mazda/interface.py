@@ -54,12 +54,15 @@ class CarInterface(CarInterfaceBase):
       ret.safetyConfigs[0].safetyParam |= Panda.FLAG_MAZDA_GEN2
       ret.experimentalLongitudinalAvailable = True
       ret.stopAccel = -.5
+      ret.stoppingDecelRate = 0.1
       ret.vEgoStarting = .1
       ret.vEgoStopping = .1
-      ret.longitudinalTuning.kpBP = [0., 5., 35.]
-      ret.longitudinalTuning.kpV = [0.0, 0.0, 0.0]
-      ret.longitudinalTuning.kiBP = [0., 35.]
-      ret.longitudinalTuning.kiV = [0.1, 0.1]
+      # ret.longitudinalTuning.kpBP = [0., 5., 35.]
+      # ret.longitudinalTuning.kpV = [0.0, 0.0, 0.0]
+      # ret.longitudinalTuning.kiBP = [0., 35.]
+      # ret.longitudinalTuning.kiV = [0.1, 0.1]
+      ret.longitudinalTuning.kpV = [0]
+      ret.longitudinalTuning.kiV = [1.0]
       ret.startingState = True
       ret.steerActuatorDelay = 0.35
 
