@@ -52,7 +52,8 @@ class MazdaCarDocs(CarDocs):
   car_parts: CarParts = field(default_factory=CarParts.common([CarHarness.mazda]))
 
 
-@dataclass(frozen=True, kw_only=True)
+# @dataclass(frozen=True, kw_only=True)
+@dataclass
 class MazdaCarSpecs(CarSpecs):
   tireStiffnessFactor: float = 0.7  # not optimized yet
 
