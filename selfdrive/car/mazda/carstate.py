@@ -4,7 +4,7 @@ from openpilot.common.conversions import Conversions as CV
 from opendbc.can.can_define import CANDefine
 from opendbc.can.parser import CANParser
 from openpilot.selfdrive.car.interfaces import CarStateBase
-from openpilot.selfdrive.car.mazda.values import DBC, LKAS_LIMITS, MazdaFlags, TI_STATE, CarControllerParams
+from openpilot.selfdrive.car.mazda.values import DBC, LKAS_LIMITS, MazdaFlags, TI_STATE, CarControllerParams, Buttons
 
 class CarState(CarStateBase):
   def __init__(self, CP):
@@ -161,6 +161,17 @@ class CarState(CarStateBase):
   def update_gen2(self, cp, cp_cam, cp_body, frogpilot_variables):
     ret = car.CarState.new_message()
     fp_ret = custom.FrogPilotCarState.new_message()
+
+    self.prev_cruise_buttons = self.cruise_buttons
+
+    if bool(cp.vl["CRZ_BTNS"]["SET_P"]):
+      self.cruise_buttons = Buttons.SET_PLUS
+    elif bool(cp.vl["CRZ_BTNS"]["SET_M"]):
+      self.cruise_buttons = Buttons.SET_MINUS
+    elif bool(cp.vl["CRZ_BTNS"]["RES"]):
+      self.cruise_buttons = Buttons.RESUME
+    else:
+      self.cruise_buttons = Buttons.NONE
 
     ret.wheelSpeeds = self.get_wheel_speeds(
         cp_cam.vl["WHEEL_SPEEDS"]["FL"],
