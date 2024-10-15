@@ -131,10 +131,10 @@ class CarController(CarControllerBase):
 
     else: #GEN2 cars
 
-      if frogpilot_variables.CSLC:
+      if frogpilot_toggles.CSLC:
         if CC.enabled and self.frame % 10 == 0 and CS.cruise_buttons == Buttons.NONE and not CS.out.gasPressed and not CS.distance_button:
           slcSet = get_set_speed(self, hud_v_cruise)
-          can_sends.extend(mazdacan.create_mazda_acc_spam_command(self.packer, self, CS, slcSet, CS.out.vEgo, frogpilot_variables, accel))
+          can_sends.extend(mazdacan.create_mazda_acc_spam_command(self.packer, self, CS, slcSet, CS.out.vEgo, frogpilot_toggles, accel))
 
       else:
         #Reset ACC output on resume
