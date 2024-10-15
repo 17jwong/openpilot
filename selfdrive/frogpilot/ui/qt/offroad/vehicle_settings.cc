@@ -144,7 +144,8 @@ FrogPilotVehiclesPanel::FrogPilotVehiclesPanel(SettingsWindow *parent) : FrogPil
     {"NewLongAPIGM", tr("Use comma's New Longitudinal API"), tr("Use comma's new longitudinal controls that have shown great improvement with acceleration and braking, but has a few issues on some GM vehicles."), ""},
 
     {"NewLongAPI", tr("Use comma's New Longitudinal API"), tr("Use comma's new longitudinal controls that have shown great improvement with acceleration and braking, but has a few issues on Hyundai/Kia/Genesis."), ""},
-
+    
+    {"CSLCEnabled", tr("CSLC"), tr("Set cars cruise speed based on SLC, MTSC, VTSC, & CEM.\n\nTurns OpenPilot Longitudnal Control off."), ""},
     {"CrosstrekTorque", tr("Subaru Crosstrek Torque Increase"), tr("Increases the maximum allowed torque for the Subaru Crosstrek."), ""},
 
     {"ToyotaDoors", tr("Automatically Lock/Unlock Doors"), tr("Automatically lock the doors when in drive and unlock when in park."), ""},
@@ -277,6 +278,7 @@ void FrogPilotVehiclesPanel::hideToggles() {
 
   bool gm = carMake == "Buick" || carMake == "Cadillac" || carMake == "Chevrolet" || carMake == "GM" || carMake == "GMC";
   bool hyundai = carMake == "Genesis" || carMake == "Hyundai" || carMake == "Kia";
+  bool mazda = carMake == "Mazda";
   bool subaru = carMake == "Subaru";
   bool toyota = carMake == "Lexus" || carMake == "Toyota";
 
@@ -313,6 +315,8 @@ void FrogPilotVehiclesPanel::hideToggles() {
         toggle->setVisible(subaruKeys.find(key.c_str()) != subaruKeys.end());
       } else if (toyota) {
         toggle->setVisible(toyotaKeys.find(key.c_str()) != toyotaKeys.end());
+      } else if (mazda) {
+      toggle->setVisible(mazdaKeys.find(key.c_str()) != mazdaKeys.end());
       }
     }
   }
