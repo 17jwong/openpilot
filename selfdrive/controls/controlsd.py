@@ -13,7 +13,7 @@ from msgq.visionipc import VisionIpcClient, VisionStreamType
 
 from openpilot.common.conversions import Conversions as CV
 from openpilot.common.git import get_short_branch
-from openpilot.common.numpy_fast import clip
+from openpilot.common.numpy_fast import clip, interp
 from openpilot.common.params import Params
 from openpilot.common.realtime import config_realtime_process, Priority, Ratekeeper, DT_CTRL
 from openpilot.common.swaglog import cloudlog
@@ -567,7 +567,8 @@ class Controls:
     # Update VehicleModel
     lp = self.sm['liveParameters']
     x = max(lp.stiffnessFactor, 0.1)
-    sr = max(self.frogpilot_toggles.steer_ratio, 0.1) if self.frogpilot_toggles.use_custom_steer_ratio else max(lp.steerRatio, 0.1)
+    sr = interp(self.CS_prev.vEgo, [1., 15.5, 22., 40.], [13., 15.0, 16.5, 17.0])
+    # sr = max(self.frogpilot_toggles.steer_ratio, 0.1) if self.frogpilot_toggles.use_custom_steer_ratio else max(lp.steerRatio, 0.1)
     self.VM.update_params(x, sr)
 
     # Update Torque Params
