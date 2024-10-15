@@ -171,7 +171,7 @@ def create_button_cmd(packer, CP, counter, button):
     values = {
       "SET_P": inc,
       "SET_M": dec
-      {
+    }
 
     return packer.make_can_msg("CRZ_BTNS", 0, values)
 
