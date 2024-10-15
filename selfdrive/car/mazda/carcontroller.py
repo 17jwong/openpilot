@@ -7,6 +7,8 @@ from openpilot.selfdrive.car.mazda.values import CarControllerParams, Buttons, M
 from openpilot.common.realtime import ControlsTimer as Timer, DT_CTRL
 from openpilot.common.filter_simple import FirstOrderFilter
 from openpilot.common.params import Params
+from openpilot.selfdrive.controls.lib.drive_helpers import V_CRUISE_MAX
+from openpilot.common.conversions import Conversions as CV
 
 VisualAlert = car.CarControl.HUDControl.VisualAlert
 LongCtrlState = car.CarControl.Actuators.LongControlState
@@ -37,6 +39,23 @@ class CarController(CarControllerBase):
 
     def is_resuming():
       return (CC.cruiseControl.resume or CC.cruiseControl.override or CS.out.gasPressed or (CC.actuators.longControlState == LongCtrlState.starting) or CS.acc["RESUME"])
+
+    def get_set_speed(self, hud_v_cruise):
+      v_cruise = min(hud_v_cruise, V_CRUISE_MAX * CV.KPH_TO_MS)
+    
+      v_cruise_slc: float = 0.
+      v_cruise_slc = self.params_memory.get_float("CSLCSpeed")
+    
+      if v_cruise_slc > 0.:
+        v_cruise = v_cruise_slc
+      return v_cruise
+
+    hud_control = CC.hudControl
+    hud_v_cruise = hud_control.setSpeed
+    if hud_v_cruise > 70:
+      hud_v_cruise = 0
+    actuators = CC.actuators
+    accel = actuators.accel
     
     can_sends = []
 
@@ -111,6 +130,11 @@ class CarController(CarControllerBase):
           can_sends.extend(mazdacan.create_radar_command(self.packer, self.frame, CC.longActive, CS, hold))
 
     else: #GEN2 cars
+
+      if frogpilot_variables.CSLC:
+        if CC.enabled and self.frame % 10 == 0 and CS.cruise_buttons == Buttons.NONE and not CS.out.gasPressed and not CS.distance_button:
+          slcSet = get_set_speed(self, hud_v_cruise)
+          can_sends.extend(mazdacan.create_mazda_acc_spam_command(self.packer, self, CS, slcSet, CS.out.vEgo, frogpilot_variables, accel))
       
       #Reset ACC output on resume
       if is_resuming() and self.params.get_bool("BlendedACC") and self.params_memory.get_int("CEFramesCounter") == 0: #Resume from chill mode, was not in CEM recently
