@@ -135,50 +135,51 @@ class CarController(CarControllerBase):
         if CC.enabled and self.frame % 10 == 0 and CS.cruise_buttons == Buttons.NONE and not CS.out.gasPressed and not CS.distance_button:
           slcSet = get_set_speed(self, hud_v_cruise)
           can_sends.extend(mazdacan.create_mazda_acc_spam_command(self.packer, self, CS, slcSet, CS.out.vEgo, frogpilot_variables, accel))
-      
-      #Reset ACC output on resume
-      if is_resuming() and self.params.get_bool("BlendedACC") and self.params_memory.get_int("CEFramesCounter") == 0: #Resume from chill mode, was not in CEM recently
-        raw_acc_output = CS.acc["ACCEL_CMD"]
-        #self.filtered_acc_last = CS.acc["ACCEL_CMD"]
+
       else:
-        raw_acc_output = (CC.actuators.accel * 240) + 2000
-        
-      if self.params.get_bool("BlendedACC"):
-        CEFramesCounter = self.params_memory.get_int("CEFramesCounter")
-        if self.params_memory.get_int("CEStatus"):
-          # self.acc_filter.update_alpha(abs(raw_acc_output-self.filtered_acc_last)/1000)
-          if is_resuming():
-            self.acc_filter.update_alpha(0.01)
-          else:
-            self.acc_filter.update_alpha((40 - CEFramesCounter)/1000 + 0.01)
-          filtered_acc_output = int(self.acc_filter.update(raw_acc_output))
-          self.params_memory.put_int("CEFramesCounter", CEFramesCounter + 1 if CEFramesCounter < 40 else 40)
+        #Reset ACC output on resume
+        if is_resuming() and self.params.get_bool("BlendedACC") and self.params_memory.get_int("CEFramesCounter") == 0: #Resume from chill mode, was not in CEM recently
+          raw_acc_output = CS.acc["ACCEL_CMD"]
+          #self.filtered_acc_last = CS.acc["ACCEL_CMD"]
         else:
-          # we want to use the stock value in this case but we need a smooth transition.
-          # self.acc_filter.update_alpha(abs(CS.acc["ACCEL_CMD"]-self.filtered_acc_last)/1000)
-          if CEFramesCounter > 0: #2 seconds or less since we transitioned to/from CEM
-            self.acc_filter.update_alpha(CEFramesCounter/1000 + 0.01)
-            filtered_acc_output = int(self.acc_filter.update(CS.acc["ACCEL_CMD"]))
-            self.params_memory.put_int("CEFramesCounter", CEFramesCounter - 1 if CEFramesCounter > 0 else 0)
-          else:
-            filtered_acc_output = CS.acc["ACCEL_CMD"]
+          raw_acc_output = (CC.actuators.accel * 240) + 2000
           
-
-        acc_output = filtered_acc_output
-        self.filtered_acc_last = filtered_acc_output
-      else:
-        acc_output = raw_acc_output
-
-      # Coasting control
-      # if (CS.acc["ACCEL_CMD"] > 2000 and CC.actuators.accel < -0.5) or (CS.acc["ACCEL_CMD"] < 2000 and CC.actuators.accel > 0.5) and self.params_memory.get_int("CEFramesCounter") == 0:
-      #   acc_output = 2000
-      #   self.filtered_acc_last = 2000
-      #   self.params_memory.put_int("Coasting", 1)
-      # else:
-      #   self.params_memory.put_int("Coasting", 0)
-
-      if self.params.get_bool("ExperimentalLongitudinalEnabled") and CC.longActive:
-        CS.acc["ACCEL_CMD"] = acc_output
+        if self.params.get_bool("BlendedACC"):
+          CEFramesCounter = self.params_memory.get_int("CEFramesCounter")
+          if self.params_memory.get_int("CEStatus"):
+            # self.acc_filter.update_alpha(abs(raw_acc_output-self.filtered_acc_last)/1000)
+            if is_resuming():
+              self.acc_filter.update_alpha(0.01)
+            else:
+              self.acc_filter.update_alpha((40 - CEFramesCounter)/1000 + 0.01)
+            filtered_acc_output = int(self.acc_filter.update(raw_acc_output))
+            self.params_memory.put_int("CEFramesCounter", CEFramesCounter + 1 if CEFramesCounter < 40 else 40)
+          else:
+            # we want to use the stock value in this case but we need a smooth transition.
+            # self.acc_filter.update_alpha(abs(CS.acc["ACCEL_CMD"]-self.filtered_acc_last)/1000)
+            if CEFramesCounter > 0: #2 seconds or less since we transitioned to/from CEM
+              self.acc_filter.update_alpha(CEFramesCounter/1000 + 0.01)
+              filtered_acc_output = int(self.acc_filter.update(CS.acc["ACCEL_CMD"]))
+              self.params_memory.put_int("CEFramesCounter", CEFramesCounter - 1 if CEFramesCounter > 0 else 0)
+            else:
+              filtered_acc_output = CS.acc["ACCEL_CMD"]
+            
+  
+          acc_output = filtered_acc_output
+          self.filtered_acc_last = filtered_acc_output
+        else:
+          acc_output = raw_acc_output
+  
+        # Coasting control
+        # if (CS.acc["ACCEL_CMD"] > 2000 and CC.actuators.accel < -0.5) or (CS.acc["ACCEL_CMD"] < 2000 and CC.actuators.accel > 0.5) and self.params_memory.get_int("CEFramesCounter") == 0:
+        #   acc_output = 2000
+        #   self.filtered_acc_last = 2000
+        #   self.params_memory.put_int("Coasting", 1)
+        # else:
+        #   self.params_memory.put_int("Coasting", 0)
+  
+        if self.params.get_bool("ExperimentalLongitudinalEnabled") and CC.longActive:
+          CS.acc["ACCEL_CMD"] = acc_output
         
 
       resume = False
