@@ -175,25 +175,25 @@ def create_button_cmd(packer, CP, counter, button):
 
     return packer.make_can_msg("CRZ_BTNS", 0, values)
 
-def create_mazda_acc_spam_command(packer, controller, CS, slcSet, Vego, frogpilot_variables, accel):
+def create_mazda_acc_spam_command(packer, controller, CS, slcSet, Vego, accel, ismetric, CEM):
   cruiseBtn = Buttons.NONE
 
-  MS_CONVERT = CV.MS_TO_KPH if frogpilot_variables.is_metric else CV.MS_TO_MPH
+  MS_CONVERT = CV.MS_TO_KPH if ismetric else CV.MS_TO_MPH
 
   speedSetPoint = int(round(CS.out.cruiseState.speed * MS_CONVERT))
   slcSet = int(round(slcSet * MS_CONVERT))
 
-  if not frogpilot_variables.experimentalMode:
+  if not CEM:
     if slcSet + 5 < Vego * MS_CONVERT:
       slcSet = slcSet - 10 # 10 lower to increase deceleration until with 5
   else:
     slcSet = int(round((Vego + 5 * accel) * MS_CONVERT))
 
-  if frogpilot_variables.is_metric: # Default is by 5 kph
+  if ismetric: # Default is by 5 kph
     slcSet = int(round(slcSet/5.0)*5.0)
     speedSetPoint = int(round(speedSetPoint/5.0)*5.0)
 
-  if slcSet < speedSetPoint and speedSetPoint > (30 if frogpilot_variables.is_metric else 20):
+  if slcSet < speedSetPoint and speedSetPoint > (30 if ismetric else 20):
     cruiseBtn = Buttons.SET_MINUS
   elif slcSet > speedSetPoint:
     cruiseBtn = Buttons.SET_PLUS
