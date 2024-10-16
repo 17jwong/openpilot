@@ -134,7 +134,9 @@ class CarController(CarControllerBase):
       if self.params.get_bool("CSLCEnabled"):
         if CC.enabled and self.frame % 10 == 0 and CS.cruise_buttons == Buttons.NONE and not CS.out.gasPressed and not CS.distance_button:
           slcSet = get_set_speed(self, hud_v_cruise)
-          can_sends.extend(mazdacan.create_mazda_acc_spam_command(self.packer, self, CS, slcSet, CS.out.vEgo, accel))
+          ismetric = self.params.get_bool("IsMetric")
+          CEM = self.params_memory.get_int("CEStatus")
+          can_sends.extend(mazdacan.create_mazda_acc_spam_command(self.packer, self, CS, slcSet, CS.out.vEgo, accel, ismetric, CEM))
 
       else:
         #Reset ACC output on resume
