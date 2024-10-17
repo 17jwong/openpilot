@@ -172,7 +172,7 @@ def create_button_cmd(packer, CP, counter, button):
     return packer.make_can_msg("CRZ_BTNS", bus, values)
 
 def create_button_cmd_gen2(packer, values, button):
-  bus = 2
+  bus = 0
   if button == Buttons.SET_PLUS:
     values["SET_P"] = 1
   elif button == Buttons.SET_MINUS:
