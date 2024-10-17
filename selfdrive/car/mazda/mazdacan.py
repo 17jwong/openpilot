@@ -1,6 +1,7 @@
 from openpilot.selfdrive.car.mazda.values import Buttons, MazdaFlags
 from openpilot.common.numpy_fast import clip
 from openpilot.common.conversions import Conversions as CV
+from openpilot.common.params import Params
 
 def create_steering_control(packer, CP, frame, apply_steer, lkas):
   msgs = []
@@ -181,6 +182,7 @@ def create_button_cmd_gen2(packer, values, button):
   return packer.make_can_msg("CRZ_BTNS", bus, values)
 
 def create_mazda_acc_spam_command(packer, controller, CS, slcSet, Vego, accel, ismetric, CEM):
+  params_memory = Params("/dev/shm/params")
   cruiseBtn = Buttons.NONE
 
   MS_CONVERT = CV.MS_TO_KPH if ismetric else CV.MS_TO_MPH
@@ -206,8 +208,10 @@ def create_mazda_acc_spam_command(packer, controller, CS, slcSet, Vego, accel, i
     cruiseBtn = Buttons.NONE
 
   if (cruiseBtn != Buttons.NONE):
+    params_memory.put_int("Coasting", 1)
     return [create_button_cmd_gen2(packer, CS.cp.vl["CRZ_BTNS"], cruiseBtn)]
   else:
+    params_memory.put_int("Coasting", 0)
     return []
 
 STATIC_DATA_21B = [0x01FFE000, 0x00000000]
