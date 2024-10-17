@@ -137,6 +137,7 @@ def create_button_cmd(packer, CP, counter, button):
   dec = int(button == Buttons.SET_MINUS)
 
   if CP.flags & MazdaFlags.GEN1:
+    bus = 0
     values = {
       "CAN_OFF": can,
       "CAN_OFF_INV": (can + 1) % 2,
@@ -168,12 +169,13 @@ def create_button_cmd(packer, CP, counter, button):
       "CTR": (counter + 1) % 16,
     }
   else:
+    bus = 2
     values = {
       "SET_P": inc,
       "SET_M": dec
     }
 
-    return packer.make_can_msg("CRZ_BTNS", 0, values)
+    return packer.make_can_msg("CRZ_BTNS", bus, values)
 
 def create_mazda_acc_spam_command(packer, controller, CS, slcSet, Vego, accel, ismetric, CEM):
   cruiseBtn = Buttons.NONE
