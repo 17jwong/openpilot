@@ -132,7 +132,7 @@ class CarController(CarControllerBase):
     else: #GEN2 cars
 
       if self.params.get_bool("CSLCEnabled"):
-        if CC.enabled and self.frame % 10 == 0 and CS.cruise_buttons == Buttons.NONE and not CS.out.gasPressed and not CS.distance_button:
+        if CC.enabled and CS.cruise_buttons == Buttons.NONE:
           slcSet = get_set_speed(self, hud_v_cruise)
           ismetric = self.params.get_bool("IsMetric")
           CEM = self.params_memory.get_int("CEStatus")
