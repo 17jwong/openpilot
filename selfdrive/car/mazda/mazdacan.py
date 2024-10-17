@@ -168,14 +168,17 @@ def create_button_cmd(packer, CP, counter, button):
       "BIT3": 1,
       "CTR": (counter + 1) % 16,
     }
-  else:
-    bus = 2
-    values = {
-      "SET_P": inc,
-      "SET_M": dec
-    }
 
     return packer.make_can_msg("CRZ_BTNS", bus, values)
+
+def create_button_cmd_gen2(packer, values, button):
+  bus = 2
+  if button == Buttons.SET_PLUS:
+    values["SET_P"] = 1
+  elif button == Buttons.SET_MINUS:
+    values["SET_M"] = 1
+
+  return packer.make_can_msg("CRZ_BTNS", bus, values)
 
 def create_mazda_acc_spam_command(packer, controller, CS, slcSet, Vego, accel, ismetric, CEM):
   cruiseBtn = Buttons.NONE
@@ -203,7 +206,7 @@ def create_mazda_acc_spam_command(packer, controller, CS, slcSet, Vego, accel, i
     cruiseBtn = Buttons.NONE
 
   if (cruiseBtn != Buttons.NONE):
-    return [create_button_cmd(packer, controller.CP, controller.frame // 10, cruiseBtn)]
+    return [create_button_cmd_gen2(packer, CS.cp.vl["CRZ_BTNS"], cruiseBtn)]
   else:
     return []
 
