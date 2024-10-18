@@ -126,14 +126,15 @@ class CarController(CarControllerBase):
           if is_resuming():
             self.acc_filter.update_alpha(0.01)
           else:
-            self.acc_filter.update_alpha((40 - CEFramesCounter)/1000 + 0.005)
+            # self.acc_filter.update_alpha((40 - CEFramesCounter)/1000 + 0.005)
+            self.acc_filter.update_alpha(min(abs(1/CS.acc["ACCEL_CMD"]), 0.01))
           filtered_acc_output = int(self.acc_filter.update(raw_acc_output))
           self.params_memory.put_int("CEFramesCounter", CEFramesCounter + 1 if CEFramesCounter < 40 else 40)
         else:
           # we want to use the stock value in this case but we need a smooth transition.
           # self.acc_filter.update_alpha(abs(CS.acc["ACCEL_CMD"]-self.filtered_acc_last)/1000)
           if CEFramesCounter > 0: #2 seconds or less since we transitioned to/from CEM
-            self.acc_filter.update_alpha(CEFramesCounter/1000 + 0.005)
+            # self.acc_filter.update_alpha(CEFramesCounter/1000 + 0.005)
             filtered_acc_output = int(self.acc_filter.update(CS.acc["ACCEL_CMD"]))
             self.params_memory.put_int("CEFramesCounter", CEFramesCounter - 1 if CEFramesCounter > 0 else 0)
           else:
@@ -146,12 +147,12 @@ class CarController(CarControllerBase):
         acc_output = raw_acc_output
 
       # Coasting control
-      # if (CS.acc["ACCEL_CMD"] > 1712 and CC.actuators.accel < -0.5) or (CS.acc["ACCEL_CMD"] < 1712 and CC.actuators.accel > 0.5) and self.params_memory.get_int("CEFramesCounter") == 0:
-      #   acc_output = 1712
-      #   self.filtered_acc_last = 1712
-      #   self.params_memory.put_int("Coasting", 1)
-      # else:
-      #   self.params_memory.put_int("Coasting", 0)
+      if (CS.acc["ACCEL_CMD"] > 1712 and CC.actuators.accel < -0.5) or (CS.acc["ACCEL_CMD"] < 1712 and CC.actuators.accel > 0.5) and self.params_memory.get_int("CEFramesCounter") == 0:
+        acc_output = 1712
+        self.filtered_acc_last = 1712
+        self.params_memory.put_int("Coasting", 1)
+      else:
+        self.params_memory.put_int("Coasting", 0)
 
       if self.params.get_bool("ExperimentalLongitudinalEnabled") and CC.longActive:
         CS.acc["ACCEL_CMD"] = acc_output
