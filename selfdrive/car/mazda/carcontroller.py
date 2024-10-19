@@ -124,7 +124,7 @@ class CarController(CarControllerBase):
         if self.params_memory.get_int("CEStatus"):
           # self.acc_filter.update_alpha(abs(raw_acc_output-self.filtered_acc_last)/1000)
           if is_resuming():
-            self.acc_filter.update_alpha(0.01)
+            self.acc_filter.update_alpha(0.001)
           else:
             # self.acc_filter.update_alpha((40 - CEFramesCounter)/1000 + 0.005)
             self.acc_filter.update_alpha(min(abs(1/CS.acc["ACCEL_CMD"]), 0.01))
@@ -158,7 +158,8 @@ class CarController(CarControllerBase):
       # else:
       #   self.params_memory.put_int("Coasting", 0)
 
-      if self.params.get_bool("ExperimentalLongitudinalEnabled") and CC.longActive:
+      # if self.params.get_bool("ExperimentalLongitudinalEnabled") and CC.longActive:
+      if CC.longActive:
         CS.acc["ACCEL_CMD"] = acc_output
         
 
