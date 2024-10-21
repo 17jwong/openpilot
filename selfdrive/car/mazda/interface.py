@@ -53,14 +53,15 @@ class CarInterface(CarInterfaceBase):
       ret.experimentalLongitudinalAvailable = True
       ret.stopAccel = -.5
       ret.vEgoStarting = .2
+      ret.vEgoStopping = .2
       ret.longitudinalTuning.kpBP = [0., 5., 35.]
       ret.longitudinalTuning.kpV = [0.0, 0.0, 0.0]
       ret.longitudinalTuning.kiBP = [0., 35.]
       ret.longitudinalTuning.kiV = [0.1, 0.1]
       ret.startingState = True
-      ret.steerActuatorDelay = 0.3
+      ret.steerActuatorDelay = 0.35
 
-    ret.steerLimitTimer = 0.8
+    ret.steerLimitTimer = 1.0
 
     CarInterfaceBase.configure_torque_tune(candidate, ret.lateralTuning)
 
